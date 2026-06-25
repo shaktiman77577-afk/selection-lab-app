@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace "com.selectionlab.selection_lab"
-    compileSdk flutter.compileSdkVersion
+    compileSdk 34
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -15,20 +15,22 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17
+        jvmTarget = "17"
     }
 
     defaultConfig {
         applicationId "com.selectionlab.selection_lab"
         minSdk 21
-        targetSdk flutter.targetSdkVersion
-        versionCode flutter.versionCode
-        versionName flutter.versionName
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
