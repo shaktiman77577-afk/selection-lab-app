@@ -12,16 +12,10 @@ class ProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile', style: TextStyle(fontWeight: FontWeight.bold)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.brightness_6_outlined),
-            onPressed: onToggleTheme,
-          ),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.brightness_6_outlined), onPressed: onToggleTheme)],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -31,9 +25,7 @@ class ProfileScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppColors.primary, AppColors.primaryDark],
-                ),
+                gradient: const LinearGradient(colors: [AppColors.primary, AppColors.primaryDark]),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Column(
@@ -41,33 +33,30 @@ class ProfileScreen extends StatelessWidget {
                   CircleAvatar(
                     radius: 36,
                     backgroundColor: Colors.white24,
-                    child: Text(
-                      (user?['name'] ?? 'S')[0].toUpperCase(),
-                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
+                    child: Text((user?['name'] ?? 'S')[0].toUpperCase(),
+                      style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
                   ),
                   const SizedBox(height: 12),
                   Text(user?['name'] ?? 'Student',
                     style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  Text(user?['phone'] ?? '',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14)),
+                  Text(user?['phone'] ?? '', style: const TextStyle(color: Colors.white70)),
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _Stat('Points', '${user?['points'] ?? 0}', Icons.stars_rounded),
-                      _Stat('Streak', '${user?['streak_days'] ?? 0}d', Icons.local_fire_department_rounded),
-                      _Stat('Code', user?['referral_code'] ?? '-', Icons.share_rounded),
+                      _S('Points', '\${user?["points"] ?? 0}', Icons.stars_rounded),
+                      _S('Streak', '\${user?["streak_days"] ?? 0}d', Icons.local_fire_department_rounded),
+                      _S('Code', user?['referral_code'] ?? '-', Icons.share_rounded),
                     ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            ListTile(icon: const Icon(Icons.history_rounded), title: const Text('Attempt History'), onTap: () {}),
-            ListTile(icon: const Icon(Icons.bookmark_rounded), title: const Text('Bookmarks'), onTap: () {}),
-            ListTile(icon: const Icon(Icons.leaderboard_rounded), title: const Text('Leaderboard'), onTap: () {}),
-            ListTile(icon: const Icon(Icons.card_giftcard_rounded), title: const Text('Refer & Earn'), onTap: () {}),
+            ListTile(leading: const Icon(Icons.history_rounded), title: const Text('Attempt History'), onTap: () {}),
+            ListTile(leading: const Icon(Icons.bookmark_rounded), title: const Text('Bookmarks'), onTap: () {}),
+            ListTile(leading: const Icon(Icons.leaderboard_rounded), title: const Text('Leaderboard'), onTap: () {}),
+            ListTile(leading: const Icon(Icons.card_giftcard_rounded), title: const Text('Refer and Earn'), subtitle: const Text('10 points per referral'), onTap: () {}),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: () async {
@@ -92,10 +81,10 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _Stat extends StatelessWidget {
+class _S extends StatelessWidget {
   final String label, value;
   final IconData icon;
-  const _Stat(this.label, this.value, this.icon);
+  const _S(this.label, this.value, this.icon);
 
   @override
   Widget build(BuildContext context) {
