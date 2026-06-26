@@ -53,7 +53,7 @@ class DashboardTab extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hello, \${user?["name"] ?? "Student"}!',
+            title: Text("Hello, ${user?[\"name\"] ?? \"Student\"}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
         actions: [IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {})],
       ),
