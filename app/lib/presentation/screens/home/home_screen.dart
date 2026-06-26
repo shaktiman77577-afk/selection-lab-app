@@ -653,9 +653,9 @@ class _BannerSliderState extends State<_BannerSlider> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white,
                               foregroundColor: colors[0],
-                              minimumSize: const Size(80, 30),
+                              minimumSize: const Size(70, 26),
                               padding: const EdgeInsets.symmetric(
-                                  horizontal: 16, vertical: 4),
+                                  horizontal: 12, vertical: 2),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20)),
                             ),
