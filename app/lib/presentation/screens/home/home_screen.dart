@@ -53,8 +53,7 @@ class DashboardTab extends StatelessWidget {
     final auth = context.watch<AuthProvider>();
     return Scaffold(
       appBar: AppBar(
-            title: Text("Hello, ${user?['name'] ?? 'Student'}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        actions: [IconButton(icon: const Icon(Icons.notifications_outlined), onPressed: () {})],
+          title: Text("Hello, ${user?['name'] ?? 'Student'}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -117,6 +116,7 @@ class DashboardTab extends StatelessWidget {
             ),
           ],
         ),
+      ),
     );
   }
 }
@@ -153,6 +153,7 @@ class _Card extends StatelessWidget {
             ),
           ],
         ),
+      ),
     );
   }
 }
@@ -184,6 +185,7 @@ class _Stat extends StatelessWidget {
             ],
           ),
         ],
+      ),
     );
   }
 }
