@@ -87,7 +87,7 @@ class AuthProvider extends ChangeNotifier {
       }
     } catch (e) {
       _isLoading = false;
-      _error = 'Connection error. Please check internet.';
+      _error = 'Error: ${e.toString()}';
       notifyListeners();
       return false;
     }
