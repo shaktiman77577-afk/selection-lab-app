@@ -1,7 +1,7 @@
 class AppConstants {
   static const String appName = "Selection Lab";
   static const String baseUrl = "https://api.selectionlab.online";
-  static const String apiUrl = "$baseUrl/api";
+  static const String apiUrl = "https://api.selectionlab.online/api";
 
   static const String login = "/auth/login";
   static const String register = "/auth/register";
