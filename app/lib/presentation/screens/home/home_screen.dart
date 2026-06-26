@@ -162,42 +162,118 @@ class DashboardTab extends StatelessWidget {
   }
 }
 
-class _PremiumBanner extends StatelessWidget {
+class _PremiumBanner extends StatefulWidget {
+  @override
+  State<_PremiumBanner> createState() => _PremiumBannerState();
+}
+
+class _PremiumBannerState extends State<_PremiumBanner> {
+  final PageController _pageController = PageController();
+  int _currentPage = 0;
+
+  final List<Map<String, dynamic>> _banners = [
+    {
+      'title': 'Get Premium!',
+      'subtitle': 'Unlock all exams for just Rs.99/month',
+      'colors': [Color(0xFFFF6B00), Color(0xFFFF8E53), Color(0xFFFF4E7A)],
+      'btnText': 'Get Now',
+    },
+    {
+      'title': 'Mock Tests',
+      'subtitle': 'Practice with real exam pattern questions',
+      'colors': [Color(0xFF1A237E), Color(0xFF283593), Color(0xFF3949AB)],
+      'btnText': 'Start Now',
+    },
+    {
+      'title': 'Study Material',
+      'subtitle': 'Access notes & PDFs for all exams',
+      'colors': [Color(0xFF1B5E20), Color(0xFF2E7D32), Color(0xFF43A047)],
+      'btnText': 'Explore',
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), _autoScroll);
+  }
+
+  void _autoScroll() {
+    if (!mounted) return;
+    final next = (_currentPage + 1) % _banners.length;
+    _pageController.animateToPage(next, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+    Future.delayed(const Duration(seconds: 3), _autoScroll);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFF6B00), Color(0xFFFF8E53), Color(0xFFFF4E7A)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+    return Column(
+      children: [
+        SizedBox(
+          height: 110,
+          child: PageView.builder(
+            controller: _pageController,
+            onPageChanged: (i) => setState(() => _currentPage = i),
+            itemCount: _banners.length,
+            itemBuilder: (context, index) {
+              final b = _banners[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: b['colors'] as List<Color>,
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: (b['colors'] as List<Color>)[0].withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(b['title'] as String, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(b['subtitle'] as String, style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () { HapticFeedback.lightImpact(); },
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: (b['colors'] as List<Color>)[0], minimumSize: const Size(80, 36), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                      child: Text(b['btnText'] as String, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: AppColors.primary.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Get Premium!", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text("Unlock all exams for just Rs.99/month", style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12)),
-              ],
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(_banners.length, (i) => AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 3),
+            width: _currentPage == i ? 20 : 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: _currentPage == i ? AppColors.primary : Colors.white24,
+              borderRadius: BorderRadius.circular(3),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () { HapticFeedback.lightImpact(); },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.white, foregroundColor: AppColors.primary, minimumSize: const Size(80, 36), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-            child: const Text("Get Now", style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
+          )),
+        ),
+      ],
     );
   }
 }
