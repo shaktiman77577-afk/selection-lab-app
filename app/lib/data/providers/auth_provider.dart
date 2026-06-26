@@ -81,7 +81,7 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _error = res['detail']?.toString() ?? 'Registration failed. Try again.';
+        _error = 'DEBUG: ' + res.toString();
         notifyListeners();
         return false;
       }
