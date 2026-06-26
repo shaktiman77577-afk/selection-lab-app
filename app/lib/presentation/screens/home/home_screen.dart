@@ -109,9 +109,9 @@ class DashboardTab extends StatelessWidget {
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: _Stat(title: 'Points', value: '\${user?["points"] ?? 0}', icon: Icons.stars_rounded, color: AppColors.warning)),
+              Expanded(child: _Stat(title: 'Points', value: '${user?['points'] ?? 0}', icon: Icons.stars_rounded, color: AppColors.warning)),
                 const SizedBox(width: 12),
-                Expanded(child: _Stat(title: 'Streak', value: '\${user?["streak_days"] ?? 0} days', icon: Icons.local_fire_department_rounded, color: AppColors.primary)),
+              Expanded(child: _Stat(title: 'Streak', value: '${user?['streak_days'] ?? 0} days', icon: Icons.local_fire_department_rounded, color: AppColors.primary)),
               ],
             ),
           ],
