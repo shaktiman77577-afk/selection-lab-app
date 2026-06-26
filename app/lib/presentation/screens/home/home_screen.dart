@@ -29,7 +29,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
       body: _screens[_index],
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
@@ -39,6 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.menu_book_outlined), activeIcon: Icon(Icons.menu_book_rounded), label: 'Exams'),
           BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person_rounded), label: 'Profile'),
         ],
+      ),
       ),
     );
   }
@@ -51,7 +54,9 @@ class DashboardTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final auth = context.watch<AuthProvider>();
-    return Scaffold(
+    return WillPopScope(
+      onWillPop: () async => false,
+      child: Scaffold(
       appBar: AppBar(
             title: Text("Hello, ${user?[\"name\"] ?? \"Student\"}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),

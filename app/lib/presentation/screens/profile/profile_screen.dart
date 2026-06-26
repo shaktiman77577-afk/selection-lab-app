@@ -44,8 +44,8 @@ class ProfileScreen extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _S('Points', '\${user?["points"] ?? 0}', Icons.stars_rounded),
-                      _S('Streak', '\${user?["streak_days"] ?? 0}d', Icons.local_fire_department_rounded),
+                      _S('Points', "${user?[\"points\"] ?? 0}", Icons.stars_rounded),
+                      _S('Streak', "${user?[\"streak_days\"] ?? 0}d", Icons.local_fire_department_rounded),
                       _S('Code', user?['referral_code'] ?? '-', Icons.share_rounded),
                     ],
                   ),
