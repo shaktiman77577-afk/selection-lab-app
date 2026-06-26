@@ -109,7 +109,7 @@ class DashboardTab extends StatelessWidget {
             backgroundColor: const Color(0xFF0F0F0F),
             floating: true,
             snap: true,
-            title: Text("Hello, \${user?['name'] ?? 'Student'}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          title: Text("Hello, ${user?['name'] ?? 'Student'}!", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             actions: [
               IconButton(
                 icon: const Icon(Icons.notifications_outlined),
@@ -146,9 +146,9 @@ class DashboardTab extends StatelessWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(child: _Stat(title: "Points", value: "\${user?['points'] ?? 0}", icon: Icons.stars_rounded, color: AppColors.warning)),
+              Expanded(child: _Stat(title: "Points", value: "${user?['points'] ?? 0}", icon: Icons.stars_rounded, color: AppColors.warning)),
                       const SizedBox(width: 12),
-                      Expanded(child: _Stat(title: "Streak", value: "\${user?['streak_days'] ?? 0} days", icon: Icons.local_fire_department_rounded, color: AppColors.primary)),
+              Expanded(child: _Stat(title: "Streak", value: "${user?['streak_days'] ?? 0} days", icon: Icons.local_fire_department_rounded, color: AppColors.primary)),
                     ],
                   ),
                   const SizedBox(height: 24),
