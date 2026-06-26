@@ -10,7 +10,7 @@ jobs:
           flutter-version: 'stable'
       - run: cd app && flutter pub get
       - run: cd app && flutter build apk --debug
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: debug-apk
           path: app/build/app/outputs/flutter-apk/app-debug.apk
