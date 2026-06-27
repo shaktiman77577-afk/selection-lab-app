@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "912827115397",
+    "project_id": "selection-lab",
+    "storage_bucket": "selection-lab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:912827115397:android:fd3425ef328e70605606ec",
+        "android_client_info": {
+          "package_name": "com.selectionlab.selection_lab"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "912827115397-t3l3iljqnf3asiulglcn2ffriep67ehv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab.selection_lab",
+            "certificate_hash": "a7f7ff42c57a156e7c24560eeea2fe5537b98fb4"
+          }
+        },
+        {
+          "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMgCz5s8aFNnfv7WSR8CMxo9ldSbQJ-Dg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
