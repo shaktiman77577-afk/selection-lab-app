@@ -12,8 +12,6 @@ jobs:
       - run: cd app && flutter pub get
       - run: cd app && dart run flutter_launcher_icons
       - run: cd app && flutter build apk --debug
-      - name: Get SHA-1
-        run: keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android | grep SHA1
       - uses: actions/upload-artifact@v4
         with:
           name: debug-apk
