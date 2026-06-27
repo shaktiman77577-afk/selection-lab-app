@@ -12,6 +12,16 @@ jobs:
       - run: cd app && flutter pub get
       - run: cd app && dart run flutter_launcher_icons
       - run: cd app && flutter build apk --debug
+      - name: Print SHA-1
+        run: |
+          cd app && flutter build apk --debug 2>/dev/null || true
+          keytool -list -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android \
+            2>/dev/null | grep "SHA1:" || echo "Not found"
+        continue-on-error: true
       - uses: actions/upload-artifact@v4
         with:
           name: debug-apk
