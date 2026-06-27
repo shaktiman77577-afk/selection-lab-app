@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../quiz/exam_categories_screen.dart';
 import '../profile/profile_screen.dart';
+import '../courses/course_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
