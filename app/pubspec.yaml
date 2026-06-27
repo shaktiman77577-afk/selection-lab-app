@@ -41,7 +41,11 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
+    - assets/images/  android: true
+  ios: false
+  image_path: "assets/images/logo.png"
+
+flutter:
+  uses-material-design: true
+  assets:
     - assets/images/
-    - assets/animations/  assets:
-    - assets/images/
-    - assets/animations/
