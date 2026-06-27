@@ -10,6 +10,24 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
       - run: cd app && flutter pub get
+      - name: Generate debug keystore and print SHA-1
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass android \
+            -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US" 2>/dev/null
+          keytool -list -v \
+            -keystore ~/.android/debug.keystore \
+            -alias androiddebugkey \
+            -storepass android \
+            -keypass android | grep "SHA1:"
+        continue-on-error: true
       - run: cd app && dart run flutter_launcher_icons
       - run: cd app && flutter build apk --debug
       - name: Print SHA-1
