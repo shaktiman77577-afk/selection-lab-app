@@ -428,7 +428,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                                       const SizedBox(width: 12),
                                       Expanded(
                                         child: _goldButton(
-                                          label: 'GET STARTED 🚀',
+                                          label: 'GET STARTED',
                                           onTap: _submitProfile,
                                           isLoading: _isLoading,
                                         ),
