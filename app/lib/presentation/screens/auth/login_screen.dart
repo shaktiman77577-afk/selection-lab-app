@@ -26,10 +26,12 @@ class _LoginScreenState extends State<LoginScreen>
       vsync: this,
       duration: const Duration(milliseconds: 900),
     );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
-        .animate(CurvedAnimation(
-            parent: _animController, curve: Curves.easeOutCubic));
+    _fadeAnim =
+        CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _slideAnim =
+        Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
     _animController.forward();
   }
 
@@ -84,35 +86,38 @@ class _LoginScreenState extends State<LoginScreen>
       body: Stack(
         children: [
 
-          // ── BACKGROUND DOT PATTERN ──
+          // ── DOT PATTERN ──
           Positioned.fill(
             child: CustomPaint(painter: _DotPatternPainter()),
           ),
 
-          // ── NIKKI MA'AM PHOTO — centered ──
+          // ── NIKKI MA'AM — right side, top half ──
           Positioned(
-            top: size.height * 0.22,
-            left: 0,
-            right: 0,
-            height: size.height * 0.42,
+            top: 0,
+            right: -30,
+            height: size.height * 0.58,
             child: ShaderMask(
               shaderCallback: (rect) => const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [Colors.white, Colors.white, Colors.transparent],
-                stops: [0.0, 0.55, 1.0],
+                stops: [0.0, 0.6, 1.0],
               ).createShader(rect),
               blendMode: BlendMode.dstIn,
               child: Image.asset(
                 'assets/images/nikki_maam.png',
                 fit: BoxFit.contain,
-                alignment: Alignment.topCenter,
+                alignment: Alignment.topRight,
               ),
             ),
           ),
 
-          // ── SIDE FADES ──
-          Positioned.fill(
+          // ── LEFT FADE so text readable ──
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: size.height * 0.58,
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
@@ -120,11 +125,28 @@ class _LoginScreenState extends State<LoginScreen>
                   end: Alignment.centerRight,
                   colors: [
                     Color(0xFF0A0A0A),
-                    Colors.transparent,
-                    Colors.transparent,
                     Color(0xFF0A0A0A),
+                    Colors.transparent,
                   ],
-                  stops: [0.0, 0.2, 0.8, 1.0],
+                  stops: [0.0, 0.35, 0.75],
+                ),
+              ),
+            ),
+          ),
+
+          // ── BOTTOM FADE ──
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: size.height * 0.6,
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xFF0A0A0A), Colors.transparent],
+                  stops: [0.5, 1.0],
                 ),
               ),
             ),
@@ -136,316 +158,206 @@ class _LoginScreenState extends State<LoginScreen>
               opacity: _fadeAnim,
               child: SlideTransition(
                 position: _slideAnim,
-                child: Stack(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
 
-                    // ── "Trusted by Aspirants" badge — absolute top right ──
-                    Positioned(
-                      top: 12,
-                      right: 16,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1A1A1A),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFFAB00).withOpacity(0.5),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // FIX: Pure transparent logo — no Container wrapper
+                          Image.asset(
+                            'assets/images/logo.png',
+                            height: 64,
                           ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: const [
-                            Icon(Icons.verified_outlined,
-                                color: Color(0xFFFFAB00), size: 13),
-                            SizedBox(width: 4),
-                            Text(
-                              'Trusted by\nAspirants',
+                          // FIX: SizedBox pushes text below Nikki Ma'am's face
+                          const SizedBox(height: 110),
+                          const Text(
+                            'SELECTION',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 34,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 2,
+                              height: 1.1,
+                            ),
+                          ),
+                          ShaderMask(
+                            shaderCallback: (bounds) => const LinearGradient(
+                              colors: [Color(0xFFFFB300), Color(0xFFFF6B00)],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'LAB',
                               style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 10,
-                                height: 1.3,
+                                color: Colors.white,
+                                fontSize: 34,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2,
+                                height: 1.1,
                               ),
                             ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              _dot(),
+                              const Text(' LEARN ', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
+                              _dot(),
+                              const Text(' PRACTICE ', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
+                              _dot(),
+                              const Text(' SUCCEED', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
 
-                    // ── COLUMN CONTENT ──
-                    Column(
-                      children: [
+                    const Spacer(),
 
-                        const SizedBox(height: 16),
-
-                        // ── LOGO with white glow ──
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.2),
-                                blurRadius: 30,
-                                spreadRadius: 6,
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.08),
-                                blurRadius: 60,
-                                spreadRadius: 14,
-                              ),
-                            ],
-                          ),
-                          child: Image.asset('assets/images/logo.png'),
+                    // ── BOTTOM CARD ──
+                    Container(
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(24, 22, 24, 22),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF141414).withOpacity(0.97),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: const Color(0xFFFFAB00).withOpacity(0.2),
                         ),
-
-                        const SizedBox(height: 12),
-
-                        // ── WELCOME BACK ──
-                        RichText(
-                          text: const TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'WELCOME ',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                              TextSpan(
-                                text: 'BACK!',
-                                style: TextStyle(
-                                  color: Color(0xFFFFAB00),
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 1,
-                                ),
-                              ),
-                            ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.6),
+                            blurRadius: 40,
+                            offset: const Offset(0, -8),
                           ),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        Text(
-                          'Sign in to continue your learning journey',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 13,
-                          ),
-                        ),
-
-                        const Spacer(),
-
-                        // ── BOTTOM CARD ──
-                        Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          padding:
-                              const EdgeInsets.fromLTRB(24, 20, 24, 20),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF141414).withOpacity(0.97),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color:
-                                  const Color(0xFFFFAB00).withOpacity(0.2),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            'WELCOME BACK!',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.6),
-                                blurRadius: 40,
-                                offset: const Offset(0, -8),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sign in to continue your learning journey',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+
+                          if (auth.error != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.red.withOpacity(0.3)),
                               ),
+                              child: Text(
+                                auth.error!,
+                                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ],
+
+                          // ── GOOGLE BUTTON ──
+                          SizedBox(
+                            width: double.infinity,
+                            height: 54,
+                            child: ElevatedButton(
+                              onPressed: auth.isLoading ? null : _googleSignIn,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: Colors.black87,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                elevation: 4,
+                              ),
+                              child: auth.isLoading
+                                  ? const SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                          color: Colors.black54, strokeWidth: 2.5),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          'G',
+                                          style: TextStyle(
+                                            color: Colors.blue.shade600,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 20,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Text(
+                                          'Continue with Google',
+                                          style: TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // ── TRUST BADGES ──
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _Feature(icon: Icons.security_rounded, label: 'Secure\n& Safe'),
+                              _divider(),
+                              _Feature(icon: Icons.bolt_rounded, label: 'Easy\n& Fast'),
+                              _divider(),
+                              _Feature(icon: Icons.verified_rounded, label: 'Trusted by\nAspirants'),
                             ],
                           ),
-                          child: Column(
-                            children: [
 
-                              // "Sign in with" label
-                              Text(
-                                'Sign in with',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.55),
-                                  fontSize: 13,
+                          const SizedBox(height: 16),
+
+                          RichText(
+                            textAlign: TextAlign.center,
+                            text: const TextSpan(
+                              text: 'By continuing, you agree to our\n',
+                              style: TextStyle(color: Colors.white30, fontSize: 10),
+                              children: [
+                                TextSpan(
+                                  text: 'Terms of Service',
+                                  style: TextStyle(color: Color(0xFFFFAB00), fontSize: 10),
                                 ),
-                              ),
-
-                              const SizedBox(height: 14),
-
-                              // ── ERROR MESSAGE ──
-                              if (auth.error != null) ...[
-                                Container(
-                                  padding: const EdgeInsets.all(10),
-                                  margin:
-                                      const EdgeInsets.only(bottom: 12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.1),
-                                    borderRadius:
-                                        BorderRadius.circular(10),
-                                    border: Border.all(
-                                        color:
-                                            Colors.red.withOpacity(0.3)),
-                                  ),
-                                  child: Text(
-                                    auth.error!,
-                                    style: const TextStyle(
-                                        color: Colors.redAccent,
-                                        fontSize: 12),
-                                    textAlign: TextAlign.center,
-                                  ),
+                                TextSpan(
+                                  text: ' and ',
+                                  style: TextStyle(color: Colors.white30, fontSize: 10),
+                                ),
+                                TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: TextStyle(color: Color(0xFFFFAB00), fontSize: 10),
                                 ),
                               ],
-
-                              // ── GOOGLE BUTTON ──
-                              SizedBox(
-                                width: double.infinity,
-                                height: 54,
-                                child: ElevatedButton(
-                                  onPressed: auth.isLoading
-                                      ? null
-                                      : _googleSignIn,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.white,
-                                    foregroundColor: Colors.black87,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius:
-                                          BorderRadius.circular(14),
-                                    ),
-                                    elevation: 4,
-                                  ),
-                                  child: auth.isLoading
-                                      ? const SizedBox(
-                                          width: 22,
-                                          height: 22,
-                                          child: CircularProgressIndicator(
-                                              color: Colors.black54,
-                                              strokeWidth: 2.5),
-                                        )
-                                      : Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Container(
-                                              width: 28,
-                                              height: 28,
-                                              decoration:
-                                                  const BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                color: Colors.white,
-                                              ),
-                                              child: Center(
-                                                child: Text(
-                                                  'G',
-                                                  style: TextStyle(
-                                                    color: Colors
-                                                        .blue.shade600,
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    fontSize: 18,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            const Text(
-                                              'Continue with Google',
-                                              style: TextStyle(
-                                                fontSize: 15,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                ),
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // ── OR DIVIDER ──
-                              Row(
-                                children: [
-                                  Expanded(
-                                      child: Container(
-                                          height: 1,
-                                          color: Colors.white12)),
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    child: Text(
-                                      'OR',
-                                      style: TextStyle(
-                                          color: Colors.white38,
-                                          fontSize: 11,
-                                          letterSpacing: 1),
-                                    ),
-                                  ),
-                                  Expanded(
-                                      child: Container(
-                                          height: 1,
-                                          color: Colors.white12)),
-                                ],
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // ── TRUST BADGES ──
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _Feature(
-                                      icon: Icons.security_rounded,
-                                      label: 'Secure\n& Safe'),
-                                  _divider(),
-                                  _Feature(
-                                      icon: Icons.person_outline_rounded,
-                                      label: 'Easy\n& Fast'),
-                                  _divider(),
-                                  _Feature(
-                                      icon: Icons.verified_rounded,
-                                      label: 'Trusted by\nAspirants'),
-                                ],
-                              ),
-
-                              const SizedBox(height: 16),
-
-                              // ── TERMS ──
-                              RichText(
-                                textAlign: TextAlign.center,
-                                text: const TextSpan(
-                                  text: 'By continuing, you agree to our\n',
-                                  style: TextStyle(
-                                      color: Colors.white30, fontSize: 10),
-                                  children: [
-                                    TextSpan(
-                                      text: 'Terms of Service',
-                                      style: TextStyle(
-                                          color: Color(0xFFFFAB00),
-                                          fontSize: 10),
-                                    ),
-                                    TextSpan(
-                                      text: ' and ',
-                                      style: TextStyle(
-                                          color: Colors.white30,
-                                          fontSize: 10),
-                                    ),
-                                    TextSpan(
-                                      text: 'Privacy Policy',
-                                      style: TextStyle(
-                                          color: Color(0xFFFFAB00),
-                                          fontSize: 10),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -457,8 +369,15 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _divider() =>
-      Container(width: 1, height: 30, color: Colors.white12);
+  Widget _dot() => Container(
+        width: 4, height: 4,
+        decoration: const BoxDecoration(
+          color: Color(0xFFFFB300),
+          shape: BoxShape.circle,
+        ),
+      );
+
+  Widget _divider() => Container(width: 1, height: 30, color: Colors.white12);
 }
 
 class _Feature extends StatelessWidget {
@@ -475,8 +394,7 @@ class _Feature extends StatelessWidget {
           decoration: BoxDecoration(
             color: const Color(0xFFFFAB00).withOpacity(0.1),
             shape: BoxShape.circle,
-            border: Border.all(
-                color: const Color(0xFFFFAB00).withOpacity(0.35)),
+            border: Border.all(color: const Color(0xFFFFAB00).withOpacity(0.35)),
           ),
           child: Icon(icon, color: const Color(0xFFFFAB00), size: 20),
         ),
@@ -484,19 +402,19 @@ class _Feature extends StatelessWidget {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-          color: Colors.white54, fontSize: 10, height: 1.3),
+          style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.3),
         ),
       ],
     );
   }
 }
 
+// ── DOT PATTERN PAINTER ──
 class _DotPatternPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withOpacity(0.03)
+      ..color = Colors.white.withOpacity(0.035)
       ..strokeWidth = 1;
     const spacing = 28.0;
     for (double x = 0; x < size.width; x += spacing) {
@@ -508,4 +426,4 @@ class _DotPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotPatternPainter oldDelegate) => false;
-}  
+}
