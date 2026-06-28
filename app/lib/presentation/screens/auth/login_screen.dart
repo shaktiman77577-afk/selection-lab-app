@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../home/home_screen.dart';
+import 'profile_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -27,7 +28,8 @@ class _LoginScreenState extends State<LoginScreen>
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+        .animate(CurvedAnimation(
+            parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
   }
 
@@ -40,13 +42,30 @@ class _LoginScreenState extends State<LoginScreen>
   Future<void> _googleSignIn() async {
     HapticFeedback.mediumImpact();
     final auth = context.read<AuthProvider>();
-    final ok = await auth.signInWithGoogle();
+    final result = await auth.signInWithGoogle();
     if (!mounted) return;
-    if (ok) {
+
+    if (result == 'home') {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          pageBuilder: (_, a, __) => HomeScreen(onToggleTheme: widget.onToggleTheme),
+          pageBuilder: (_, a, __) =>
+              HomeScreen(onToggleTheme: widget.onToggleTheme),
+          transitionsBuilder: (_, a, __, child) =>
+              FadeTransition(opacity: a, child: child),
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } else if (result == 'profile_setup') {
+      Navigator.pushReplacement(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (_, a, __) => ProfileSetupScreen(
+            onToggleTheme: widget.onToggleTheme,
+            googleId: auth.googleId!,
+            email: auth.googleEmail!,
+            displayName: auth.googleDisplayName!,
+          ),
           transitionsBuilder: (_, a, __, child) =>
               FadeTransition(opacity: a, child: child),
           transitionDuration: const Duration(milliseconds: 500),
@@ -92,7 +111,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // ── SIDE FADES so photo blends into dark bg ──
+          // ── SIDE FADES ──
           Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
@@ -125,7 +144,8 @@ class _LoginScreenState extends State<LoginScreen>
                       top: 12,
                       right: 16,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: const Color(0xFF1A1A1A),
                           borderRadius: BorderRadius.circular(10),
@@ -135,11 +155,11 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.verified_outlined,
+                          children: const [
+                            Icon(Icons.verified_outlined,
                                 color: Color(0xFFFFAB00), size: 13),
-                            const SizedBox(width: 4),
-                            const Text(
+                            SizedBox(width: 4),
+                            Text(
                               'Trusted by\nAspirants',
                               style: TextStyle(
                                 color: Colors.white70,
@@ -224,12 +244,14 @@ class _LoginScreenState extends State<LoginScreen>
                         // ── BOTTOM CARD ──
                         Container(
                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
+                          padding:
+                              const EdgeInsets.fromLTRB(24, 20, 24, 20),
                           decoration: BoxDecoration(
                             color: const Color(0xFF141414).withOpacity(0.97),
                             borderRadius: BorderRadius.circular(24),
                             border: Border.all(
-                              color: const Color(0xFFFFAB00).withOpacity(0.2),
+                              color:
+                                  const Color(0xFFFFAB00).withOpacity(0.2),
                             ),
                             boxShadow: [
                               BoxShadow(
@@ -257,17 +279,21 @@ class _LoginScreenState extends State<LoginScreen>
                               if (auth.error != null) ...[
                                 Container(
                                   padding: const EdgeInsets.all(10),
-                                  margin: const EdgeInsets.only(bottom: 12),
+                                  margin:
+                                      const EdgeInsets.only(bottom: 12),
                                   decoration: BoxDecoration(
                                     color: Colors.red.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(10),
+                                    borderRadius:
+                                        BorderRadius.circular(10),
                                     border: Border.all(
-                                        color: Colors.red.withOpacity(0.3)),
+                                        color:
+                                            Colors.red.withOpacity(0.3)),
                                   ),
                                   child: Text(
                                     auth.error!,
                                     style: const TextStyle(
-                                        color: Colors.redAccent, fontSize: 12),
+                                        color: Colors.redAccent,
+                                        fontSize: 12),
                                     textAlign: TextAlign.center,
                                   ),
                                 ),
@@ -278,12 +304,15 @@ class _LoginScreenState extends State<LoginScreen>
                                 width: double.infinity,
                                 height: 54,
                                 child: ElevatedButton(
-                                  onPressed: auth.isLoading ? null : _googleSignIn,
+                                  onPressed: auth.isLoading
+                                      ? null
+                                      : _googleSignIn,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.white,
                                     foregroundColor: Colors.black87,
                                     shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
+                                      borderRadius:
+                                          BorderRadius.circular(14),
                                     ),
                                     elevation: 4,
                                   ),
@@ -302,7 +331,8 @@ class _LoginScreenState extends State<LoginScreen>
                                             Container(
                                               width: 28,
                                               height: 28,
-                                              decoration: const BoxDecoration(
+                                              decoration:
+                                                  const BoxDecoration(
                                                 shape: BoxShape.circle,
                                                 color: Colors.white,
                                               ),
@@ -310,8 +340,10 @@ class _LoginScreenState extends State<LoginScreen>
                                                 child: Text(
                                                   'G',
                                                   style: TextStyle(
-                                                    color: Colors.blue.shade600,
-                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors
+                                                        .blue.shade600,
+                                                    fontWeight:
+                                                        FontWeight.bold,
                                                     fontSize: 18,
                                                   ),
                                                 ),
@@ -341,8 +373,8 @@ class _LoginScreenState extends State<LoginScreen>
                                           height: 1,
                                           color: Colors.white12)),
                                   const Padding(
-                                    padding:
-                                        EdgeInsets.symmetric(horizontal: 12),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 12),
                                     child: Text(
                                       'OR',
                                       style: TextStyle(
@@ -398,7 +430,8 @@ class _LoginScreenState extends State<LoginScreen>
                                     TextSpan(
                                       text: ' and ',
                                       style: TextStyle(
-                                          color: Colors.white30, fontSize: 10),
+                                          color: Colors.white30,
+                                          fontSize: 10),
                                     ),
                                     TextSpan(
                                       text: 'Privacy Policy',
@@ -452,7 +485,7 @@ class _Feature extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-              color: Colors.white54, fontSize: 10, height: 1.3),
+          color: Colors.white54, fontSize: 10, height: 1.3),
         ),
       ],
     );
@@ -475,4 +508,4 @@ class _DotPatternPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotPatternPainter oldDelegate) => false;
-}
+}  
