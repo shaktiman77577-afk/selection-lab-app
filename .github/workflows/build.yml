@@ -21,6 +21,11 @@ jobs:
             -keypass android | grep "SHA1:"
       - run: cd app && dart run flutter_launcher_icons
       - run: cd app && flutter build apk --debug
+      - name: Print APK SHA1
+        run: |
+          apksigner verify --print-certs \
+            app/build/app/outputs/flutter-apk/app-debug.apk \
+            | grep SHA-1
       - uses: actions/upload-artifact@v4
         with:
           name: debug-apk
