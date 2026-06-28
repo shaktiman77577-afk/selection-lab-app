@@ -29,6 +29,8 @@ dependencies:
   google_sign_in: ^6.2.1
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
+  youtube_player_flutter: ^9.0.1
+  flutter_widget_from_html: ^0.15.2
 
 dev_dependencies:
   flutter_test:
