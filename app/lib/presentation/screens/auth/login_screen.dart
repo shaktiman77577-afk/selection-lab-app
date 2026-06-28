@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../core/theme/app_theme.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../home/home_screen.dart';
 
@@ -24,10 +23,10 @@ class _LoginScreenState extends State<LoginScreen>
     super.initState();
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 900),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero)
+    _slideAnim = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
         .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
   }
@@ -65,132 +64,151 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: const Color(0xFF0A0A0A),
       body: Stack(
         children: [
-          // ── BACKGROUND GRADIENT ──
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF0A0A0A),
-                  Color(0xFF1A0A00),
-                  Color(0xFF0A0A0A),
-                ],
-              ),
-            ),
+
+          // ── BACKGROUND DOT PATTERN ──
+          Positioned.fill(
+            child: CustomPaint(painter: _DotPatternPainter()),
           ),
 
-          // ── NIKKI MA'AM IMAGE ──
+          // ── NIKKI MA'AM — centered, top half ──
           Positioned(
-            top: 0,
-            right: -20,
-            child: SizedBox(
-              height: size.height * 0.6,
+            top: size.height * 0.18,
+            left: 0,
+            right: 0,
+            height: size.height * 0.42,
+            child: ShaderMask(
+              shaderCallback: (rect) => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white, Colors.transparent],
+                stops: [0.0, 0.6, 1.0],
+              ).createShader(rect),
+              blendMode: BlendMode.dstIn,
               child: Image.asset(
                 'assets/images/nikki_maam.png',
                 fit: BoxFit.contain,
+                alignment: Alignment.topCenter,
               ),
             ),
           ),
 
-          // ── GRADIENT OVERLAY on image ──
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: size.height * 0.6,
+          // ── LEFT SIDE DARK FADE (so card edges look clean) ──
+          Positioned.fill(
             child: Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [
-                    Color(0xFF0A0A0A),
-                    Colors.transparent,
-                  ],
-                  stops: [0.3, 0.7],
+                  colors: [Color(0xFF0A0A0A), Colors.transparent, Color(0xFF0A0A0A)],
+                  stops: [0.0, 0.5, 1.0],
                 ),
               ),
             ),
           ),
 
-          // ── BOTTOM GRADIENT ──
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: size.height * 0.55,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Color(0xFF0A0A0A),
-                  ],
-                  stops: [0.0, 0.4],
-                ),
-              ),
-            ),
-          ),
-
-          // ── CONTENT ──
+          // ── MAIN CONTENT ──
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnim,
               child: SlideTransition(
                 position: _slideAnim,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // ── TOP SECTION ──
+
+                    // ── TOP BAR: Logo center + Badge top right ──
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Stack(
+                        alignment: Alignment.center,
                         children: [
-                          // Logo
-                          Image.asset('assets/images/logo.png', height: 60),
-                          const SizedBox(height: 16),
-                          // Title
-                          const Text(
-                            'SELECTION',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 2,
-                              height: 1,
+                          // Logo centered with glow
+                          Container(
+                            width: 90,
+                            height: 90,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFFFAB00).withOpacity(0.5),
+                                  blurRadius: 30,
+                                  spreadRadius: 6,
+                                ),
+                              ],
                             ),
+                            child: Image.asset('assets/images/logo.png'),
                           ),
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFFFFB300), Color(0xFFFF6B00)],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'LAB',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 36,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 2,
-                                height: 1,
+
+                          // Trusted by Aspirants badge — top right
+                          Positioned(
+                            right: 0,
+                            top: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1A1A1A),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: const Color(0xFFFFAB00).withOpacity(0.5),
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.verified_outlined,
+                                      color: const Color(0xFFFFAB00), size: 13),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Trusted by\nAspirants',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 10,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              _dot(),
-                              const Text(' LEARN ', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
-                              _dot(),
-                              const Text(' PRACTICE ', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
-                              _dot(),
-                              const Text(' SUCCEED', style: TextStyle(color: Colors.white60, fontSize: 11, letterSpacing: 1)),
-                            ],
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // ── WELCOME BACK ──
+                    RichText(
+                      text: const TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'WELCOME ',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          TextSpan(
+                            text: 'BACK!',
+                            style: TextStyle(
+                              color: Color(0xFFFFAB00),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1,
+                            ),
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      'Sign in to continue your learning journey',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 13,
                       ),
                     ),
 
@@ -198,46 +216,37 @@ class _LoginScreenState extends State<LoginScreen>
 
                     // ── BOTTOM CARD ──
                     Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(24),
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 20),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A1A1A).withOpacity(0.95),
+                        color: const Color(0xFF141414).withOpacity(0.97),
                         borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: const Color(0xFFFFB300).withOpacity(0.2),
+                          color: const Color(0xFFFFAB00).withOpacity(0.2),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 30,
-                            offset: const Offset(0, -10),
+                            color: Colors.black.withOpacity(0.6),
+                            blurRadius: 40,
+                            offset: const Offset(0, -8),
                           ),
                         ],
                       ),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Text(
-                            'WELCOME BACK!',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
+
+                          // "Sign in with" label
                           Text(
-                            'Sign in to continue your learning journey',
-                            textAlign: TextAlign.center,
+                            'Sign in with',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.5),
+                              color: Colors.white.withOpacity(0.55),
                               fontSize: 13,
                             ),
                           ),
-                          const SizedBox(height: 24),
 
-                          // ── GOOGLE SIGN IN BUTTON ──
+                          const SizedBox(height: 14),
+
+                          // Error message
                           if (auth.error != null) ...[
                             Container(
                               padding: const EdgeInsets.all(10),
@@ -255,6 +264,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ],
 
+                          // ── GOOGLE BUTTON ──
                           SizedBox(
                             width: double.infinity,
                             height: 54,
@@ -291,7 +301,7 @@ class _LoginScreenState extends State<LoginScreen>
                                               style: TextStyle(
                                                 color: Colors.blue.shade600,
                                                 fontWeight: FontWeight.bold,
-                                                fontSize: 16,
+                                                fontSize: 18,
                                               ),
                                             ),
                                           ),
@@ -310,15 +320,29 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
 
-                          // ── FEATURES ROW ──
+                          // ── OR DIVIDER ──
+                          Row(
+                            children: [
+                              Expanded(child: Container(height: 1, color: Colors.white12)),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 12),
+                                child: Text('OR', style: TextStyle(color: Colors.white38, fontSize: 11, letterSpacing: 1)),
+                              ),
+                              Expanded(child: Container(height: 1, color: Colors.white12)),
+                            ],
+                          ),
+
+                          const SizedBox(height: 16),
+
+                          // ── TRUST BADGES ──
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
                               _Feature(icon: Icons.security_rounded, label: 'Secure\n& Safe'),
                               _divider(),
-                              _Feature(icon: Icons.bolt_rounded, label: 'Easy\n& Fast'),
+                              _Feature(icon: Icons.person_outline_rounded, label: 'Easy\n& Fast'),
                               _divider(),
                               _Feature(icon: Icons.verified_rounded, label: 'Trusted by\nAspirants'),
                             ],
@@ -326,18 +350,31 @@ class _LoginScreenState extends State<LoginScreen>
 
                           const SizedBox(height: 16),
 
-                          Text(
-                            'By continuing, you agree to our Terms of Service and Privacy Policy',
+                          // ── TERMS ──
+                          RichText(
                             textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.3),
-                              fontSize: 10,
+                            text: const TextSpan(
+                              text: 'By continuing, you agree to our\n',
+                              style: TextStyle(color: Colors.white30, fontSize: 10),
+                              children: [
+                                TextSpan(
+                                  text: 'Terms of Service',
+                                  style: TextStyle(color: Color(0xFFFFAB00), fontSize: 10),
+                                ),
+                                TextSpan(
+                                  text: ' and ',
+                                  style: TextStyle(color: Colors.white30, fontSize: 10),
+                                ),
+                                TextSpan(
+                                  text: 'Privacy Policy',
+                                  style: TextStyle(color: Color(0xFFFFAB00), fontSize: 10),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 8),
                   ],
                 ),
               ),
@@ -348,20 +385,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _dot() => Container(
-        width: 4,
-        height: 4,
-        decoration: const BoxDecoration(
-          color: Color(0xFFFFB300),
-          shape: BoxShape.circle,
-        ),
-      );
-
-  Widget _divider() => Container(
-        width: 1,
-        height: 30,
-        color: Colors.white12,
-      );
+  Widget _divider() => Container(width: 1, height: 30, color: Colors.white12);
 }
 
 class _Feature extends StatelessWidget {
@@ -376,23 +400,38 @@ class _Feature extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFFFB300).withOpacity(0.1),
+            color: const Color(0xFFFFAB00).withOpacity(0.1),
             shape: BoxShape.circle,
-            border: Border.all(color: const Color(0xFFFFB300).withOpacity(0.3)),
+            border: Border.all(color: const Color(0xFFFFAB00).withOpacity(0.35)),
           ),
-          child: Icon(icon, color: const Color(0xFFFFB300), size: 20),
+          child: Icon(icon, color: const Color(0xFFFFAB00), size: 20),
         ),
         const SizedBox(height: 6),
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 10,
-            height: 1.3,
-          ),
+          style: const TextStyle(color: Colors.white54, fontSize: 10, height: 1.3),
         ),
       ],
     );
   }
+}
+
+// Reuse same dot painter from splash screen
+class _DotPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.03)
+      ..strokeWidth = 1;
+    const spacing = 28.0;
+    for (double x = 0; x < size.width; x += spacing) {
+      for (double y = 0; y < size.height; y += spacing) {
+        canvas.drawCircle(Offset(x, y), 1.5, paint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DotPatternPainter oldDelegate) => false;
 }
