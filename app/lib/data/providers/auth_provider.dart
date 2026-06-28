@@ -11,7 +11,9 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
 
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+  serverClientId: '912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com',
+);
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   Map<String, dynamic>? get user => _user;
