@@ -22,11 +22,9 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
       flags: const YoutubePlayerFlags(
         autoPlay: true,
         mute: false,
-        hideControls: false,
-        controlsVisibleAtStart: true,
-        enableCaption: false,
-        disableDragSeek: false,
         forceHD: false,
+        enableCaption: false,
+        useHybridComposition: true,
       ),
     );
   }
