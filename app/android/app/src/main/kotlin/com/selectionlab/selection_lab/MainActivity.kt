@@ -1,4 +1,4 @@
-package com.selectionlab.app
+package com.selectionlab.selection_lab
 
 import android.os.Bundle
 import android.view.WindowManager
