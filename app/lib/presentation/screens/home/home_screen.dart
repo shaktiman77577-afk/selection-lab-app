@@ -12,7 +12,7 @@ import '../courses/course_detail_screen.dart';
 import '../courses/course_list_screen.dart';
 import '../search/search_screen.dart';
 import '../learning/my_learning_screen.dart';
-import '../notifications/notifications_screen.dart';
+import '../notification/notifications_screen.dart';
 import '../quiz/quiz_home_screen.dart';
 import '../mock/mock_test_list_screen.dart';
 
