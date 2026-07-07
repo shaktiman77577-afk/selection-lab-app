@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'data/providers/auth_provider.dart';
+import 'data/providers/app_config_provider.dart';
 import 'presentation/screens/auth/splash_screen.dart';
 
 void main() async {
@@ -74,6 +75,7 @@ class _SelectionLabAppState extends State<SelectionLabApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()..loadUser()),
+        ChangeNotifierProvider(create: (_) => AppConfigProvider()..load()),
       ],
       child: MaterialApp(
         title: AppConstants.appName,
