@@ -3,7 +3,6 @@
 // Home rebuilt to match the website (selectionlab.in) home page:
 // navy hero, quick-nav chips, banners, "Why", faculty, exams, featured
 // courses, mock CTA, community. Bottom nav kept (Home / My Learning / Profile).
-// Quiz removed.
 
 import 'dart:async';
 import 'dart:convert';
@@ -15,6 +14,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../data/providers/auth_provider.dart';
+import '../../../data/providers/app_config_provider.dart';
 import '../courses/course_detail_screen.dart';
 import '../courses/course_list_screen.dart';
 import '../learning/my_learning_screen.dart';
@@ -34,13 +34,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
 
-
-  @override
-  void dispose() {
-    _heroTimer?.cancel();
-    _heroCtrl.dispose();
-    super.dispose();
-  }
   @override
   Widget build(BuildContext context) {
     final t = DT(Theme.of(context).brightness == Brightness.dark);
@@ -163,7 +156,7 @@ class DashboardTab extends StatefulWidget {
 class _DashboardTabState extends State<DashboardTab> {
   static const _site = 'https://selectionlab.in';
 
-  final List<Map<String, String>> _why = const [
+  final List<Map<String, String>> _whyFallback = const [
     {
       'icon': '🖥️',
       'title': 'Real Exam Interface',
@@ -190,13 +183,13 @@ class _DashboardTabState extends State<DashboardTab> {
     },
   ];
 
-  final List<Map<String, String>> _faculty = const [
+  final List<Map<String, String>> _facultyFallback = const [
     {'name': "Nikki Ma'am", 'subject': 'English & Interview', 'img': '/nikki_maam.png'},
     {'name': 'Ravi Sir', 'subject': 'GK/GS & Current Affairs', 'img': '/ravi_sir.jpg'},
     {'name': 'Ashutosh Sir', 'subject': 'Maths', 'img': '/ashutosh_sir.jpg'},
   ];
 
-  final List<String> _exams = const [
+  final List<String> _examsFallback = const [
     'SSC CGL',
     'SSC CHSL',
     'IB Security Assistant',
@@ -206,6 +199,36 @@ class _DashboardTabState extends State<DashboardTab> {
     'CISF / CRPF',
     'UPSC CAPF',
   ];
+
+  // ── Config-driven (admin panel) with safe fallbacks ──
+  List<Map<String, String>> get _why {
+    final c = context.watch<AppConfigProvider>().whyUs;
+    if (c.isEmpty) return _whyFallback;
+    return c
+        .map((w) => {
+              'icon': (w['emoji'] ?? '').toString(),
+              'title': (w['title'] ?? '').toString(),
+              'desc': (w['text'] ?? '').toString(),
+            })
+        .toList();
+  }
+
+  List<Map<String, String>> get _faculty {
+    final c = context.watch<AppConfigProvider>().faculty;
+    if (c.isEmpty) return _facultyFallback;
+    return c
+        .map((f) => {
+              'name': (f['name'] ?? '').toString(),
+              'subject': (f['subject'] ?? '').toString(),
+              'img': (f['image_url'] ?? '').toString(),
+            })
+        .toList();
+  }
+
+  List<String> get _exams {
+    final c = context.watch<AppConfigProvider>().exams;
+    return c.isEmpty ? _examsFallback : c;
+  }
 
   List<Map<String, dynamic>> _courses = [];
   List<Map<String, dynamic>> _banners = [];
@@ -221,7 +244,8 @@ class _DashboardTabState extends State<DashboardTab> {
     super.initState();
     _heroTimer = Timer.periodic(const Duration(seconds: 4), (_) {
       if (!_heroCtrl.hasClients) return;
-      final total = 4 + _banners.length;
+      final total = (context.read<AppConfigProvider>().heroSlides.length) + _banners.length;
+      if (total == 0) return;
       final next = (_heroPage + 1) % total;
       _heroCtrl.animateToPage(next,
           duration: const Duration(milliseconds: 450),
@@ -230,6 +254,12 @@ class _DashboardTabState extends State<DashboardTab> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _heroTimer?.cancel();
+    _heroCtrl.dispose();
+    super.dispose();
+  }
   Future<void> _load() async {
     try {
       final results = await Future.wait([
@@ -264,7 +294,6 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // ── data helpers (mirror website's supabase.ts) ──
   String _courseTitle(Map c) =>
       (c['title'] ?? c['name'] ?? 'Course').toString();
   String _courseImage(Map c) =>
@@ -338,225 +367,187 @@ class _DashboardTabState extends State<DashboardTab> {
     return Scaffold(
       backgroundColor: t.bg,
       body: SafeArea(
+        bottom: false,
         child: RefreshIndicator(
           onRefresh: _load,
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
+            padding: EdgeInsets.zero,
             children: [
-              _header(t, name),
-              const SizedBox(height: 14),
-              _quickNav(t),
-              const SizedBox(height: 16),
-              _hero(t),
-              if (_banners.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                _bannerStrip(t),
-              ],
-              _h2(t, 'Why Selection Lab?'),
-              Text("We're new — and that's exactly why we do things differently.",
-                  style: TextStyle(fontSize: 13, color: t.muted)),
-              const SizedBox(height: 12),
-              _whyGrid(t),
-              _h2(t, 'Meet Our Faculty'),
-              _facultyGrid(t),
-              const SizedBox(height: 12),
-              Center(
-                child: GestureDetector(
-                  onTap: () => _open('https://youtube.com/@selection_lab'),
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
-                    decoration: BoxDecoration(
-                        color: const Color(0xFFFF0000),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Text('▶ Watch Free Classes on YouTube',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12.5)),
-                  ),
+              // header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                          color: kDGold,
+                          borderRadius: BorderRadius.circular(10)),
+                      alignment: Alignment.center,
+                      child: const Text('SL',
+                          style: TextStyle(
+                              color: Color(0xFF1A1A1A),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 15)),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text('Selection Lab',
+                          style: TextStyle(
+                              color: t.text,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900)),
+                    ),
+                    IconButton(
+                      icon: Icon(
+                          Theme.of(context).brightness == Brightness.dark
+                              ? Icons.light_mode_rounded
+                              : Icons.dark_mode_rounded,
+                          color: t.text2),
+                      onPressed: widget.onToggleTheme,
+                    ),
+                  ],
                 ),
               ),
-              _h2(t, 'Exams We Cover'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _exams
-                    .map((e) => Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
-                          decoration: BoxDecoration(
-                              color: t.chip,
-                              border: Border.all(color: t.line),
-                              borderRadius: BorderRadius.circular(20)),
-                          child: Text(e,
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: t.text)),
-                        ))
-                    .toList(),
+
+              // quick-nav chips
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  children: [
+                    ['Courses', _courseCategories],
+                    [
+                      'Descriptive',
+                      () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) =>
+                                  const DescriptiveSeriesListScreen()))
+                    ],
+                    [
+                      'Mock Tests',
+                      () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MockSeriesListScreen()))
+                    ],
+                    ['Blog', () => _open('$_site/blog')],
+                  ].map((e) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ActionChip(
+                        label: Text(e[0] as String),
+                        labelStyle: TextStyle(
+                            color: t.text, fontWeight: FontWeight.w700),
+                        backgroundColor: t.card,
+                        side: BorderSide(color: t.line),
+                        onPressed: e[1] as VoidCallback,
+                      ),
+                    );
+                  }).toList(),
+                ),
               ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Expanded(child: _h2(t, 'Featured Courses')),
-                  GestureDetector(
-                    onTap: _courseCategories,
-                    child: const Text('View all →',
-                        style: TextStyle(
-                            color: kDGold,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                ],
+              const SizedBox(height: 12),
+
+              // hero carousel
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _hero(t),
               ),
-              if (_loading)
-                Text('Loading courses...',
-                    style: TextStyle(color: t.muted, fontSize: 14))
-              else if (featured.isEmpty)
-                Text(
-                    'New courses launching soon — join our Telegram for updates!',
-                    style: TextStyle(color: t.muted, fontSize: 14))
-              else
-                _coursesGrid(t, featured),
-              const SizedBox(height: 26),
-              _mockCta(t),
-              _h2(t, 'Learn Free, Every Day'),
-              _community(t),
+
+              // banners strip
+              if (_banners.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: _bannerStrip(t),
+                ),
+              ],
+
+              // Why us
+              const SizedBox(height: 24),
+              _sectionTitle(t, 'Why Selection Lab?'),
+              _whyGrid(t),
+
+              // Faculty
+              const SizedBox(height: 24),
+              _sectionTitle(t, 'Learn from the Best'),
+              _facultyGrid(t),
+
+              // Exams
+              const SizedBox(height: 24),
+              _sectionTitle(t, 'Exams We Cover'),
+              _examsWrap(t),
+
+              // Featured courses
+              if (featured.isNotEmpty) ...[
+                const SizedBox(height: 24),
+                _sectionTitle(t, 'Featured Courses'),
+                _featuredCourses(t, featured),
+              ],
+
+              // Mock CTA
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _mockCta(t),
+              ),
+
+              // Community
+              const SizedBox(height: 24),
+              _sectionTitle(t, 'Join Our Community'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: _community(t),
+              ),
+              const SizedBox(height: 30),
             ],
           ),
         ),
       ),
     );
   }
+  Widget _sectionTitle(DT t, String title) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Text(title,
+            style: TextStyle(
+                fontSize: 19, fontWeight: FontWeight.w900, color: t.text)),
+      );
 
-  // ── sections ──
-  Widget _header(DT t, String name) {
-    return Row(
-      children: [
-        Image.asset('assets/images/logo.png',
-            height: 32,
-            errorBuilder: (_, __, ___) =>
-                const Icon(Icons.school, color: kDGold)),
-        const SizedBox(width: 8),
-        Text.rich(TextSpan(children: [
-          TextSpan(
-              text: 'Selection ',
-              style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 18, color: t.text)),
-          const TextSpan(
-              text: 'Lab',
-              style:
-                  TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: kDGold)),
-        ])),
-        const Spacer(),
-        IconButton(
-          onPressed: widget.onToggleTheme,
-          icon: Icon(t.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-              color: t.text),
-        ),
-      ],
-    );
-  }
-
-  Widget _quickNav(DT t) {
-    final items = [
-      ['Courses', () => _courseCategories()],
-      ['Descriptive', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DescriptiveSeriesListScreen()))],
-      ['Mock Tests', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MockSeriesListScreen()))],
-      ['Blog', () => _open('$_site/blog')],
-    ];
-    return SizedBox(
-      height: 36,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: items.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
-        itemBuilder: (_, i) => GestureDetector(
-          onTap: items[i][1] as VoidCallback,
-          child: Container(
-            alignment: Alignment.center,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-                color: t.chip,
-                border: Border.all(color: t.line),
-                borderRadius: BorderRadius.circular(20)),
-            child: Text(items[i][0] as String,
-                style: TextStyle(
-                    fontSize: 13.5, fontWeight: FontWeight.w700, color: t.text)),
-          ),
-        ),
-      ),
-    );
-  }
-
+  // ── HERO CAROUSEL ──
   Widget _hero(DT t) {
+    final cfg = context.watch<AppConfigProvider>();
+    final slideData = cfg.heroSlides;
+
+    Widget actionBtn(String label, String action, {bool ghost = false}) {
+      if (label.trim().isEmpty) return const SizedBox.shrink();
+      final onTap = _heroAction(action);
+      return ghost
+          ? _ghostBtn(label, onTap)
+          : GoldButton(
+              label: label,
+              onTap: onTap,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12));
+    }
+
     final slides = <Widget>[
-      _heroSlide(
-        title: 'Crack SSC, IB & Railway Exams',
-        subtitle:
-            'Courses, real exam-interface mock tests and daily practice — in Hindi + English, guided by Nikki Ma\'am.',
-        emoji: '🏆',
-        buttons: [
-          GoldButton(
-              label: '🎯 Try Free Mock Test',
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const MockSeriesListScreen())),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-          _ghostBtn('Explore Courses', _courseCategories),
-        ],
-      ),
-      _heroSlide(
-        title: 'Real Exam-Interface Mock Tests',
-        subtitle:
-            'Same TCS/SSC-pattern screen — palette, timer, sections, negative marking. English + हिंदी. Instant result & solutions.',
-        emoji: '🖥️',
-        buttons: [
-          GoldButton(
-              label: 'Start Free Mock →',
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const MockSeriesListScreen())),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-        ],
-      ),
-      _heroSlide(
-        title: 'Punjab & Haryana High Court',
-        subtitle:
-            'Descriptive Writing Practice — Essay, Letter, Précis & Translation, auto-scored instantly. Every mistake shown with marks deducted, plus model answers.',
-        emoji: '✍️',
-        buttons: [
-          GoldButton(
-              label: 'Practice Writing →',
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) =>
-                          const DescriptiveSeriesListScreen())),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-        ],
-      ),
-      _heroSlide(
-        title: 'Courses by Expert Faculty',
-        subtitle:
-            'Nikki Ma\'am (English), Ravi Sir (GK/GS) & Ashutosh Sir (Maths). Free + affordable batches with PDFs and PYQs.',
-        emoji: '📚',
-        buttons: [
-          GoldButton(
-              label: 'Explore Courses →',
-              onTap: _courseCategories,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-        ],
-      ),
+      for (final sd in slideData)
+        _heroSlide(
+          title: (sd['title'] ?? '').toString(),
+          subtitle: (sd['subtitle'] ?? '').toString(),
+          emoji: (sd['emoji'] ?? '').toString(),
+          buttons: [
+            actionBtn((sd['primary_label'] ?? '').toString(),
+                (sd['primary_action'] ?? '').toString()),
+            actionBtn((sd['secondary_label'] ?? '').toString(),
+                (sd['secondary_action'] ?? '').toString(),
+                ghost: true),
+          ],
+        ),
     ];
 
     // Admin-added promo slides (Banners with a link) join the hero carousel.
@@ -596,6 +587,27 @@ class _DashboardTabState extends State<DashboardTab> {
         ),
       ],
     );
+  }
+
+  VoidCallback _heroAction(String action) {
+    switch (action) {
+      case 'mock':
+        return () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const MockSeriesListScreen()));
+      case 'descriptive':
+        return () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const DescriptiveSeriesListScreen()));
+      case 'courses':
+        return _courseCategories;
+      default:
+        if (action.startsWith('http')) {
+          final url = action;
+          return () => _open(url);
+        }
+        return () {};
+    }
   }
 
   Widget _ghostBtn(String label, VoidCallback onTap) {
@@ -687,7 +699,6 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-
   Widget _bannerSlide(String img, String link) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -733,248 +744,248 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _whyGrid(DT t) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: GridView.count(
         crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
-        childAspectRatio: 0.92,
-      ),
-      itemCount: _why.length,
-      itemBuilder: (_, i) {
-        final w = _why[i];
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
+        childAspectRatio: 0.95,
+        children: _why.map((w) {
+          return Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
               color: t.card,
               border: Border.all(color: t.line),
               borderRadius: BorderRadius.circular(14),
-              boxShadow: t.shadow),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(w['icon']!, style: const TextStyle(fontSize: 28)),
-              const SizedBox(height: 8),
-              Text(w['title']!,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14.5,
-                      color: t.text)),
-              const SizedBox(height: 4),
-              Expanded(
-                child: Text(w['desc']!,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(w['icon'] ?? '', style: const TextStyle(fontSize: 26)),
+                const SizedBox(height: 8),
+                Text(w['title'] ?? '',
                     style: TextStyle(
-                        fontSize: 12, color: t.muted, height: 1.5),
-                    maxLines: 5,
-                    overflow: TextOverflow.ellipsis),
-              ),
-            ],
-          ),
-        );
-      },
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: t.text)),
+                const SizedBox(height: 4),
+                Expanded(
+                  child: Text(w['desc'] ?? '',
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 11.5, height: 1.4, color: t.muted)),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 
   Widget _facultyGrid(DT t) {
-    return Row(
-      children: _faculty.map((f) {
-        return Expanded(
-          child: Container(
-            margin: EdgeInsets.only(right: f == _faculty.last ? 0 : 10),
-            padding: const EdgeInsets.all(14),
+    return SizedBox(
+      height: 180,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _faculty.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final f = _faculty[i];
+          return Container(
+            width: 140,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-                color: t.card,
-                border: Border.all(color: t.line),
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: t.shadow),
+              color: t.card,
+              border: Border.all(color: t.line),
+              borderRadius: BorderRadius.circular(14),
+            ),
             child: Column(
               children: [
-                Container(
-                  width: 74,
-                  height: 74,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: t.chip,
-                    border: Border.all(color: kDGold, width: 3),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Image.network('$_site${f['img']}',
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                      (f['img'] ?? '').startsWith('http')
+                          ? f['img']!
+                          : '$_site${f['img']}',
+                      height: 90,
+                      width: double.infinity,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Center(
-                          child: Text(f['name']!.substring(0, 1),
-                              style: TextStyle(
-                                  color: t.text,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold)))),
+                      errorBuilder: (_, __, ___) => Container(
+                          height: 90,
+                          color: kDGold.withOpacity(0.15),
+                          child: const Icon(Icons.person,
+                              color: kDGold, size: 40))),
                 ),
                 const SizedBox(height: 8),
-                Text(f['name']!,
-                    textAlign: TextAlign.center,
+                Text(f['name'] ?? '',
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 13.5,
+                        fontSize: 13,
                         color: t.text)),
                 const SizedBox(height: 2),
-                Text(f['subject']!,
+                Text(f['subject'] ?? '',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 11,
-                        color: kDGold,
-                        fontWeight: FontWeight.w700)),
+                    style: TextStyle(fontSize: 11, color: t.muted)),
               ],
             ),
-          ),
-        );
-      }).toList(),
+          );
+        },
+      ),
     );
   }
 
-  Widget _coursesGrid(DT t, List<Map<String, dynamic>> courses) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.74,
-      ),
-      itemCount: courses.length,
-      itemBuilder: (_, i) {
-        final c = courses[i];
-        final img = _courseImage(c);
-        final price = _num(c['price']);
-        final orig = _num(c['original_price']);
-        final buyers = _num(c['recent_buyers']);
-        return GestureDetector(
-          onTap: () => _openCourse(c),
-          child: Container(
+  Widget _examsWrap(DT t) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: _exams.map((e) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
+              color: t.card,
+              border: Border.all(color: t.line),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(e,
+                style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: t.text2)),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _featuredCourses(DT t, List<Map<String, dynamic>> featured) {
+    return SizedBox(
+      height: 210,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: featured.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (_, i) {
+          final c = featured[i];
+          final img = _courseImage(c);
+          final price = _num(c['price']);
+          return GestureDetector(
+            onTap: () => _openCourse(c),
+            child: Container(
+              width: 190,
+              decoration: BoxDecoration(
                 color: t.card,
                 border: Border.all(color: t.line),
                 borderRadius: BorderRadius.circular(14),
-                boxShadow: t.shadow),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: img.isEmpty
-                      ? Container(color: t.chip)
-                      : Image.network(img,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              Container(color: t.chip)),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 36,
-                        child: Text(_courseTitle(c),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius:
+                        const BorderRadius.vertical(top: Radius.circular(14)),
+                    child: img.isEmpty
+                        ? Container(
+                            height: 110,
+                            color: kDGold.withOpacity(0.12),
+                            child: const Icon(Icons.school,
+                                color: kDGold, size: 40))
+                        : Image.network(img,
+                            height: 110,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                                height: 110,
+                                color: kDGold.withOpacity(0.12),
+                                child: const Icon(Icons.school,
+                                    color: kDGold, size: 40))),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_courseTitle(c),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                                fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                height: 1.4,
+                                fontSize: 13,
                                 color: t.text)),
-                      ),
-                      const SizedBox(height: 6),
-                      price == 0
-                          ? const Text('FREE',
-                              style: TextStyle(
-                                  color: kDGreen,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 13.5))
-                          : Row(children: [
-                              Text('₹${price.toInt()}',
-                                  style: const TextStyle(
-                                      color: kDGold,
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 13.5)),
-                              if (orig > price) ...[
-                                const SizedBox(width: 5),
-                                Text('₹${orig.toInt()}',
-                                    style: TextStyle(
-                                        color: t.muted,
-                                        fontSize: 11.5,
-                                        decoration:
-                                            TextDecoration.lineThrough)),
-                              ],
-                            ]),
-                      if (buyers > 0) ...[
-                        const SizedBox(height: 3),
-                        Text('🔥 ${buyers.toInt()} enrolled recently',
+                        const SizedBox(height: 6),
+                        Text(price <= 0 ? 'FREE' : '₹${price.toInt()}',
                             style: const TextStyle(
-                                fontSize: 10.5, color: Color(0xFFE07B00))),
+                                color: kDGold,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13)),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
   Widget _mockCta(DT t) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: t.card,
-        border: Border.all(color: kDGold, width: 1.5, style: BorderStyle.solid),
+        gradient: const LinearGradient(
+            colors: [kDNavy, kDNavy2],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('📝', style: TextStyle(fontSize: 34)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Experience the real exam — free',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w800,
-                        fontSize: 15,
-                        color: t.text)),
-                const SizedBox(height: 2),
-                Text(
-                    'Attempt free mock tests on the same interface as the actual SSC/TCS exam.',
-                    style: TextStyle(fontSize: 12.5, color: t.muted)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          GoldButton(label: 'Start Now', onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MockSeriesListScreen()))),
+          const Text('Ready for the real thing?',
+              style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800)),
+          const SizedBox(height: 6),
+          Text('Take a full-length mock test on the real exam interface.',
+              style: TextStyle(
+                  color: Colors.white.withOpacity(0.85), fontSize: 13)),
+          const SizedBox(height: 14),
+          GoldButton(
+              label: 'Start Now',
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const MockSeriesListScreen()))),
         ],
       ),
     );
   }
 
   Widget _community(DT t) {
-    Widget card(String icon, String title, String sub, String url) {
+    Widget card(String emoji, String title, String desc, String url) {
       return GestureDetector(
         onTap: () => _open(url),
         child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
+          margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-              color: t.card,
-              border: Border.all(color: t.line),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: t.shadow),
+            color: t.card,
+            border: Border.all(color: t.line),
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Row(
             children: [
-              Text(icon, style: const TextStyle(fontSize: 30)),
+              Text(emoji, style: const TextStyle(fontSize: 26)),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -985,32 +996,44 @@ class _DashboardTabState extends State<DashboardTab> {
                             fontWeight: FontWeight.w800,
                             fontSize: 14,
                             color: t.text)),
-                    Text(sub, style: TextStyle(fontSize: 12, color: t.muted)),
+                    const SizedBox(height: 2),
+                    Text(desc,
+                        style: TextStyle(fontSize: 12, color: t.muted)),
                   ],
                 ),
               ),
+              Icon(Icons.arrow_forward_ios, size: 14, color: t.muted),
             ],
           ),
         ),
       );
     }
 
-    return Column(
-      children: [
-        card('▶️', 'YouTube — Selection Lab',
-            'Free lessons, strategy videos and exam updates',
-            'https://youtube.com/@selection_lab'),
-        card('✈️', 'Telegram Community',
-            'Daily quizzes, PDFs, doubts and announcements',
-            'https://t.me/Selection_Lab'),
-      ],
-    );
-  }
+    final comm = context.watch<AppConfigProvider>().community;
+    String link(String k, String d) {
+      final v = (comm[k] ?? '').toString();
+      return v.isEmpty ? d : v;
+    }
 
-  Widget _h2(DT t, String text) => Padding(
-        padding: const EdgeInsets.only(top: 26, bottom: 10),
-        child: Text(text,
-            style: TextStyle(
-                fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
-      );
+    final cards = <Widget>[];
+    final yt = link('youtube', 'https://youtube.com/@selection_lab');
+    final tg = link('telegram', 'https://t.me/Selection_Lab');
+    final ig = (comm['instagram'] ?? '').toString();
+    final wa = (comm['whatsapp'] ?? '').toString();
+    if (yt.isNotEmpty) {
+      cards.add(card('▶️', 'YouTube — Selection Lab',
+          'Free lessons, strategy videos and exam updates', yt));
+    }
+    if (tg.isNotEmpty) {
+      cards.add(card('✈️', 'Telegram Community',
+          'Daily quizzes, PDFs, doubts and announcements', tg));
+    }
+    if (ig.isNotEmpty) {
+      cards.add(card('📸', 'Instagram', 'Reels, tips and updates', ig));
+    }
+    if (wa.isNotEmpty) {
+      cards.add(card('💬', 'WhatsApp', 'Join our WhatsApp community', wa));
+    }
+    return Column(children: cards);
+  }
 }
