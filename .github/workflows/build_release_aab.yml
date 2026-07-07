@@ -1,0 +1,60 @@
+name: Build Release AAB
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+          channel: stable
+
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/android/app/selectionlab-release.jks
+
+      - name: Create key.properties
+        run: |
+          cat > app/android/key.properties << EOF
+          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          storeFile=selectionlab-release.jks
+          EOF
+
+      - name: Get dependencies
+        run: cd app && flutter pub get
+
+      - name: Build signed AAB
+        run: cd app && flutter build appbundle --release
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: app/build/app/outputs/bundle/release/app-release.aab
+
+      # APK bhi banate hain taaki khud phone pe test kar sako (same signing)
+      - name: Build signed APK (for your own testing)
+        run: cd app && flutter build apk --release
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
