@@ -4,7 +4,6 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/network/razorpay_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
@@ -28,18 +27,10 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
   bool _loading = true;
   bool _buying = false;
   String? _error;
-  final RazorpayService _razorpay = RazorpayService();
-
   @override
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _razorpay.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
