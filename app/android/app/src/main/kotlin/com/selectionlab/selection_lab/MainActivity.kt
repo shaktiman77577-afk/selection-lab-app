@@ -1,4 +1,4 @@
-package com.selectionlab.selection_lab
+package com.selectionlab
 
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
