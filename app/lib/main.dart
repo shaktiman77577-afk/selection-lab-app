@@ -8,6 +8,9 @@ import 'core/constants/app_constants.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/providers/app_config_provider.dart';
 import 'presentation/screens/auth/splash_screen.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'core/navigation/nav_key.dart';
+import 'core/services/push_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,6 +41,8 @@ void main() async {
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await Firebase.initializeApp();
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  PushService.init();
   runApp(const SelectionLabApp());
 }
 
@@ -78,6 +83,7 @@ class _SelectionLabAppState extends State<SelectionLabApp> {
         ChangeNotifierProvider(create: (_) => AppConfigProvider()..load()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: AppConstants.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
