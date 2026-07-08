@@ -10,6 +10,8 @@ import '../../../core/network/razorpay_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import 'video_player_screen.dart';
 import 'pdf_viewer_screen.dart';
+import '../../../core/utils/share_helper.dart';
+
 
 class CourseDetailScreen extends StatefulWidget {
   final Map<String, dynamic> course;
@@ -138,11 +140,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   void _shareContent() {
-    final title = course['title'] ?? 'Course';
     final price = course['price']?.toString() ?? '0';
-    final url = course['redirect_url'] ?? 'https://selectionlab.online';
-    final text = 'Check out $title for Rs.$price on Selection Lab App!\n$url';
-    _launchUrl('https://wa.me/?text=${Uri.encodeComponent(text)}');
+    final priceLine =
+        (price == '0' || price.isEmpty) ? 'Free course' : 'Only ₹$price';
+    ShareHelper.share(
+      type: 'course',
+      id: course['id'],
+      title: (course['title'] ?? 'Course').toString(),
+      subtitle: priceLine,
+    );
   }
 
   void _openContent(Map<String, dynamic> item) {
