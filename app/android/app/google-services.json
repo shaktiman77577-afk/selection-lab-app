@@ -1,0 +1,116 @@
+{
+  "project_info": {
+    "project_number": "912827115397",
+    "project_id": "selection-lab",
+    "storage_bucket": "selection-lab.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:912827115397:android:0dcb7b6e9cac60cd5606ec",
+        "android_client_info": {
+          "package_name": "com.selectionlab"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "912827115397-28vi310v8r0jam68huhbn1a4vr52hkfr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab",
+            "certificate_hash": "a7f7ff42c57a156e7c24560eeea2fe5537b98fb4"
+          }
+        },
+        {
+          "client_id": "912827115397-dt9oei0246ptj266d5h08t3edkevvs6a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab",
+            "certificate_hash": "c8fc2fd59ec7020d73e59f1a3bb9d3bff0017994"
+          }
+        },
+        {
+          "client_id": "912827115397-gtukk8bi08dt7fg4n09sneomf71lsqid.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab",
+            "certificate_hash": "6e060fdbbf66d85b4d383dbad75123376a018996"
+          }
+        },
+        {
+          "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMgCz5s8aFNnfv7WSR8CMxo9ldSbQJ-Dg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:912827115397:android:fd3425ef328e70605606ec",
+        "android_client_info": {
+          "package_name": "com.selectionlab.selection_lab"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "912827115397-qu6c36vtbkmmjjbdtpctg34blm7p9oge.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab.selection_lab",
+            "certificate_hash": "c8fc2fd59ec7020d73e59f1a3bb9d3bff0017994"
+          }
+        },
+        {
+          "client_id": "912827115397-t3l3iljqnf3asiulglcn2ffriep67ehv.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab.selection_lab",
+            "certificate_hash": "a7f7ff42c57a156e7c24560eeea2fe5537b98fb4"
+          }
+        },
+        {
+          "client_id": "912827115397-usqh8f3fv24d8d7cfeg5ulelgc6tpelp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.selectionlab.selection_lab",
+            "certificate_hash": "6e060fdbbf66d85b4d383dbad75123376a018996"
+          }
+        },
+        {
+          "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDMgCz5s8aFNnfv7WSR8CMxo9ldSbQJ-Dg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "912827115397-qm98tra9srdsl4o58bab6v1b9d6rsg8g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
