@@ -5,7 +5,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../auth/login_screen.dart';
-import 'leaderboard_screen.dart';
 import '../learning/my_learning_screen.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
@@ -105,20 +104,6 @@ class ProfileScreen extends StatelessWidget {
             ]),
             const SizedBox(height: 14),
             _sectionCard(isDark, [
-              _menuItem(isDark, Icons.card_giftcard_rounded, 'Refer & Earn', 'Code: ${user?['referral_code'] ?? '-'}', () {
-                final code = user?['referral_code']?.toString() ?? '';
-                if (code.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Referral code not available')));
-                  return;
-                }
-                _launch('https://wa.me/?text=${Uri.encodeComponent('Join Selection Lab for SSC/Govt exam prep! Use my code $code. Download: https://selectionlab.online')}');
-              }),
-              _menuItem(isDark, Icons.leaderboard_rounded, 'Leaderboard', 'Your rank', () {
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const LeaderboardScreen()));
-              }),
-            ]),
-            const SizedBox(height: 14),
-            _sectionCard(isDark, [
               _menuItem(isDark, Icons.support_agent_rounded, 'Help & Support', 'Chat with us on WhatsApp',
                   () => _contactSupport(userName), iconColor: const Color(0xFF25D366)),
               _menuItem(isDark, Icons.telegram, 'Join Telegram', 'Updates & discussion',
@@ -129,9 +114,10 @@ class ProfileScreen extends StatelessWidget {
             const SizedBox(height: 14),
             _sectionCard(isDark, [
               _menuItem(isDark, Icons.star_rounded, 'Rate App', 'Love the app? Rate us', () {
-                _launch('https://play.google.com/store/apps/details?id=com.selectionlab.selection_lab');
+                _launch('https://play.google.com/store/apps/details?id=com.selectionlab');
               }, iconColor: Colors.amber),
-              _menuItem(isDark, Icons.privacy_tip_rounded, 'Terms & Privacy', '', () => _launch('https://selectionlab.online')),
+              _menuItem(isDark, Icons.description_rounded, 'Terms of Service', '', () => _launch('https://www.selectionlab.online/terms')),
+              _menuItem(isDark, Icons.privacy_tip_rounded, 'Privacy Policy', '', () => _launch('https://www.selectionlab.online/privacy')),
               _menuItem(isDark, Icons.info_outline_rounded, 'About', 'Version 1.0.0', () {
                 showAboutDialog(
                   context: context,
