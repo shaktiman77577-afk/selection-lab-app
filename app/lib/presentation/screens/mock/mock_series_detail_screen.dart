@@ -10,6 +10,7 @@ import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
 import 'mock_instructions_screen.dart';
 import '../../../core/utils/share_helper.dart';
+import '../checkout/checkout_screen.dart';
 
 class MockSeriesDetailScreen extends StatefulWidget {
   final int seriesId;
@@ -88,25 +89,23 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
       _snack('Please log in to continue.');
       return;
     }
-    setState(() => _buying = true);
-    _razorpay.payForMockSeries(
+    final result = await Navigator.push(
       context,
-      userId: uid,
-      seriesId: widget.seriesId,
-      userName: (auth.user?['name'] ?? 'Student').toString(),
-      userEmail: (auth.user?['email'] ?? '').toString(),
-      onSuccess: () {
-        if (!mounted) return;
-        setState(() => _buying = false);
-        _snack('Series unlocked! All tests are now available.');
-        _load();
-      },
-      onError: (err) {
-        if (!mounted) return;
-        setState(() => _buying = false);
-        _snack(err);
-      },
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(
+          productType: 'mock',
+          productId: widget.seriesId,
+          title: _series?['title']?.toString() ?? 'Mock Test Series',
+          price: _price,
+          originalPrice: _orig > _price ? _orig : _price,
+          onSuccess: () {},
+        ),
+      ),
     );
+    if (result == true && mounted) {
+      _snack('Series unlocked! All tests are now available.');
+      _load();
+    }
   }
 
   void _openTest(Map<String, dynamic> t) {
