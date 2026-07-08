@@ -9,6 +9,7 @@ import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
 import 'descriptive_theme.dart';
 import 'descriptive_player_screen.dart';
+import '../../../core/utils/share_helper.dart';
 
 class DescriptiveSeriesDetailScreen extends StatefulWidget {
   final int seriesId;
@@ -144,6 +145,18 @@ class _DescriptiveSeriesDetailScreenState
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontWeight: FontWeight.w800, color: t.text)),
+        actions: [
+          if (_series != null)
+            IconButton(
+              icon: Icon(Icons.share_rounded, color: t.text),
+              onPressed: () => ShareHelper.share(
+                type: 'descriptive',
+                id: _series!['id'],
+                title: _series!['title']?.toString() ?? 'Descriptive Series',
+                subtitle: (_series!['description'] ?? '').toString(),
+              ),
+            ),
+        ],
       ),
       body: _loading
           ? Center(child: Text('Loading…', style: TextStyle(color: t.muted)))
