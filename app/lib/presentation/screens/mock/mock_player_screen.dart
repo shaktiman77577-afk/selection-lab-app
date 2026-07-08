@@ -4,6 +4,8 @@
 // mark-for-review, question palette, EN/HI toggle, auto-submit.
 
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -48,10 +50,73 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  // ── Pause / Resume (save progress locally) ──
+  int? _uidForKey;
+  String get _progKey => 'mock_progress_${_uidForKey ?? 0}_${widget.testId}';
+
+  Future<void> _saveProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = {
+        'answers': _answers.map((k, v) => MapEntry(k.toString(), v)),
+        'marked': _marked.toList(),
+        'visited': _visited.toList(),
+        'current': _current,
+        'secondsLeft': _secondsLeft,
+        'elapsed': _elapsed,
+        'hindi': _hindi,
+      };
+      await prefs.setString(_progKey, jsonEncode(data));
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _readSaved() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_progKey);
+      if (raw == null || raw.isEmpty) return null;
+      return Map<String, dynamic>.from(jsonDecode(raw) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_progKey);
+    } catch (_) {}
+  }
+
+  void _restoreFrom(Map<String, dynamic> d) {
+    _answers.clear();
+    (d['answers'] as Map?)?.forEach((k, v) {
+      final id = int.tryParse(k.toString());
+      if (id != null) _answers[id] = v.toString();
+    });
+    _marked
+      ..clear()
+      ..addAll(((d['marked'] as List?) ?? []).map((e) => e as int));
+    _visited
+      ..clear()
+      ..addAll(((d['visited'] as List?) ?? []).map((e) => e as int));
+    _current = (d['current'] as num?)?.toInt() ?? 0;
+    if (_current >= _questions.length) _current = 0;
+    _secondsLeft = (d['secondsLeft'] as num?)?.toInt() ?? _secondsLeft;
+    _elapsed = (d['elapsed'] as num?)?.toInt() ?? 0;
+    _hindi = d['hindi'] == true;
+  }
+
+  Future<void> _pauseAndExit() async {
+    _timer?.cancel();
+    await _saveProgress();
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   Future<void> _load() async {
     final uid = context.read<AuthProvider>().user?['id'] as int?;
+    _uidForKey = uid;
     try {
       final res = await MockApi.test(widget.testId, uid);
       if (res['mock_test'] == null || res['questions'] == null) {
@@ -84,6 +149,33 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
         _loading = false;
         if (questions.isNotEmpty) _visited.add(questions.first['id'] as int);
       });
+
+      // resume if a paused attempt exists
+      final saved = await _readSaved();
+      if (saved != null && mounted) {
+        final resume = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Resume test?'),
+            content: const Text(
+                'You have a paused attempt for this test. Resume from where you left off, or start over?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Start over')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Resume')),
+            ],
+          ),
+        );
+        if (resume == true) {
+          setState(() => _restoreFrom(saved));
+        } else {
+          await _clearProgress();
+        }
+      }
       _startTimer();
     } catch (e) {
       setState(() {
@@ -158,6 +250,7 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
   Future<void> _submit({bool auto = false}) async {
     if (_submitting) return;
     _timer?.cancel();
+    await _clearProgress();
     setState(() => _submitting = true);
     final uid = context.read<AuthProvider>().user?['id'] as int?;
 
@@ -239,6 +332,33 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
                   fontWeight: FontWeight.w800,
                   fontSize: 15)),
           actions: [
+            // pause & exit (saves progress, timer stops)
+            Center(
+              child: GestureDetector(
+                onTap: _pauseAndExit,
+                child: Container(
+                  margin: const EdgeInsets.only(left: 4, right: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.pause_rounded,
+                          color: Colors.white, size: 16),
+                      SizedBox(width: 3),
+                      Text('Pause',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
             // language toggle
             Center(
               child: GestureDetector(
