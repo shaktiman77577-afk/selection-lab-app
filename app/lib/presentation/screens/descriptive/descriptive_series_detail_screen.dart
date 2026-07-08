@@ -4,12 +4,12 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../../core/network/razorpay_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
 import 'descriptive_theme.dart';
 import 'descriptive_player_screen.dart';
 import '../../../core/utils/share_helper.dart';
+import '../checkout/checkout_screen.dart';
 
 class DescriptiveSeriesDetailScreen extends StatefulWidget {
   final int seriesId;
@@ -29,18 +29,10 @@ class _DescriptiveSeriesDetailScreenState
   bool _buying = false;
   String? _error;
 
-  final RazorpayService _razorpay = RazorpayService();
-
   @override
   void initState() {
     super.initState();
     _load();
-  }
-
-  @override
-  void dispose() {
-    _razorpay.dispose();
-    super.dispose();
   }
 
   Future<void> _load() async {
@@ -85,8 +77,6 @@ class _DescriptiveSeriesDetailScreenState
 
   Future<void> _buy() async {
     final auth = context.read<AuthProvider>();
-  Future<void> _buy() async {
-    final auth = context.read<AuthProvider>();
     final uid = auth.user?['id'] as int?;
     if (uid == null) {
       _snack('Please log in to continue.');
@@ -110,7 +100,6 @@ class _DescriptiveSeriesDetailScreenState
       _load();
     }
   }
-
 
   void _openTest(Map<String, dynamic> t) {
     if (context.read<AuthProvider>().user?['id'] == null) {
