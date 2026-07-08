@@ -1,16 +1,21 @@
 // lib/presentation/screens/checkout/checkout_screen.dart
 //
-// Universal checkout — price breakdown (with fee lines), coupon apply,
-// auto-listed public offers, Razorpay pay. Used by course / mock / descriptive.
+// Universal checkout — price breakdown, coupon apply (with confetti + sound),
+// animated pay flow (loading → success/failed overlay), Razorpay.
 
-import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:confetti/confetti.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/network/razorpay_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../descriptive/descriptive_theme.dart';
+
+enum _PayState { idle, loading, success, failed }
 
 class CheckoutScreen extends StatefulWidget {
   final String productType; // 'course' | 'mock' | 'descriptive'
@@ -34,16 +39,24 @@ class CheckoutScreen extends StatefulWidget {
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends State<CheckoutScreen>
+    with TickerProviderStateMixin {
   final _couponCtrl = TextEditingController();
   final RazorpayService _razorpay = RazorpayService();
+  final AudioPlayer _audio = AudioPlayer();
+
+  late final ConfettiController _confetti =
+      ConfettiController(duration: const Duration(milliseconds: 900));
+  late final AnimationController _shakeCtrl = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 450));
 
   List<Map<String, dynamic>> _publicCoupons = [];
   String? _appliedCode;
   num _discount = 0;
   bool _checkingCoupon = false;
-  bool _paying = false;
   String? _couponError;
+
+  _PayState _payState = _PayState.idle;
 
   @override
   void initState() {
@@ -55,7 +68,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void dispose() {
     _razorpay.dispose();
     _couponCtrl.dispose();
+    _confetti.dispose();
+    _shakeCtrl.dispose();
+    _audio.dispose();
     super.dispose();
+  }
+
+  void _playSound(String file) {
+    // never let a missing asset crash the flow
+    _audio.play(AssetSource('sounds/$file')).catchError((_) {});
   }
 
   num get _baseDiscount =>
@@ -130,6 +151,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _discount = (data['discount'] as num?) ?? 0;
           _checkingCoupon = false;
         });
+        HapticFeedback.mediumImpact();
+        _confetti.play();
+        _playSound('coupon_success.mp3');
       } else {
         setState(() {
           _appliedCode = null;
@@ -137,12 +161,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           _couponError = data['reason']?.toString() ?? 'Invalid coupon';
           _checkingCoupon = false;
         });
+        HapticFeedback.heavyImpact();
+        _shakeCtrl.forward(from: 0);
+        _playSound('coupon_error.mp3');
       }
     } catch (e) {
       setState(() {
         _checkingCoupon = false;
         _couponError = 'Could not validate coupon. Check connection.';
       });
+      _shakeCtrl.forward(from: 0);
     }
   }
 
@@ -165,19 +193,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       _snack('Please log in to continue.');
       return;
     }
-    setState(() => _paying = true);
+    setState(() => _payState = _PayState.loading);
+    HapticFeedback.mediumImpact();
 
-    void onSuccess() {
+    void onSuccess() async {
       if (!mounted) return;
-      setState(() => _paying = false);
+      setState(() => _payState = _PayState.success);
+      HapticFeedback.heavyImpact();
+      _confetti.play();
+      _playSound('coupon_success.mp3');
       widget.onSuccess();
-      Navigator.pop(context, true);
+      await Future.delayed(const Duration(milliseconds: 1800));
+      if (mounted) Navigator.pop(context, true);
     }
 
-    void onError(String err) {
+    void onError(String err) async {
       if (!mounted) return;
-      setState(() => _paying = false);
-      _snack(err);
+      setState(() => _payState = _PayState.failed);
+      HapticFeedback.heavyImpact();
+      _shakeCtrl.forward(from: 0);
+      _playSound('coupon_error.mp3');
+      await Future.delayed(const Duration(milliseconds: 1600));
+      if (mounted) {
+        setState(() => _payState = _PayState.idle);
+        _snack(err);
+      }
     }
 
     final userName = (auth.user?['name'] ?? 'Student').toString();
@@ -229,121 +269,151 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         title: Text('Checkout',
             style: TextStyle(fontWeight: FontWeight.w800, color: t.text)),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      body: Stack(
         children: [
-          // ── Product card ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [kDNavy, kDNavy2],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: kDGold.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(_productIcon, color: kDGold, size: 24),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_productLabel.toUpperCase(),
-                          style: TextStyle(
-                              color: Colors.white.withOpacity(0.65),
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.8)),
-                      const SizedBox(height: 3),
-                      Text(widget.title,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              height: 1.3)),
-                    ],
-                  ),
-                ),
-              ],
+          _content(t),
+          // confetti burst from top-center
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confetti,
+              blastDirectionality: BlastDirectionality.explosive,
+              numberOfParticles: 20,
+              maxBlastForce: 20,
+              minBlastForce: 7,
+              gravity: 0.25,
+              emissionFrequency: 0.05,
+              colors: const [kDGold, kDGreen, kDNavy2, Colors.white],
             ),
           ),
+          if (_payState != _PayState.idle) _payOverlay(t),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 16),
-
-          // ── Price breakdown ──
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: t.card,
-              border: Border.all(color: t.line),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: t.shadow,
+  Widget _content(DT t) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      children: [
+        // ── Product card ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [kDNavy, kDNavy2],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.receipt_long_rounded, size: 17, color: kDGold),
-                    const SizedBox(width: 7),
-                    Text('Price Details',
-                        style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                            color: t.text)),
-                  ],
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: kDGold.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(height: 14),
-                _row(t, '$_productLabel Price',
-                    '₹${widget.originalPrice.toInt()}'),
-                if (_baseDiscount > 0)
-                  _row(t, 'Discount', '− ₹${_baseDiscount.toInt()}',
-                      valueColor: kDGreen),
-                _feeRow(t, 'Internet Handling Fee', '₹10'),
-                _feeRow(t, 'Platform Fee', '₹5'),
-                _row(t, 'GST', 'Included',
-                    valueColor: t.muted, valueSize: 12.5),
-                if (_discount > 0)
-                  _row(t, 'Coupon ($_appliedCode)', '− ₹${_discount.toInt()}',
-                      valueColor: kDGreen),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: _dashedDivider(t),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Icon(_productIcon, color: kDGold, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Total Payable',
+                    Text(_productLabel.toUpperCase(),
                         style: TextStyle(
-                            fontSize: 15.5,
+                            color: Colors.white.withOpacity(0.65),
+                            fontSize: 10.5,
                             fontWeight: FontWeight.w800,
-                            color: t.text)),
-                    Text('₹${_finalAmount.toInt()}',
+                            letterSpacing: 0.8)),
+                    const SizedBox(height: 3),
+                    Text(widget.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 20,
+                            color: Colors.white,
+                            fontSize: 15,
                             fontWeight: FontWeight.w800,
-                            color: kDGold)),
+                            height: 1.3)),
                   ],
                 ),
-                if (_totalSaved > 0) ...[
-                  const SizedBox(height: 10),
-                  Container(
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // ── Price breakdown ──
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: t.card,
+            border: Border.all(color: t.line),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: t.shadow,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.receipt_long_rounded, size: 17, color: kDGold),
+                  const SizedBox(width: 7),
+                  Text('Price Details',
+                      style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w800,
+                          color: t.text)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _row(t, '$_productLabel Price',
+                  '₹${widget.originalPrice.toInt()}'),
+              if (_baseDiscount > 0)
+                _row(t, 'Discount', '− ₹${_baseDiscount.toInt()}',
+                    valueColor: kDGreen),
+              _feeRow(t, 'Internet Handling Fee', '₹10'),
+              _feeRow(t, 'Platform Fee', '₹5'),
+              _row(t, 'GST', 'Included',
+                  valueColor: t.muted, valueSize: 12.5),
+              if (_discount > 0)
+                _row(t, 'Coupon ($_appliedCode)', '− ₹${_discount.toInt()}',
+                    valueColor: kDGreen),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: _dashedDivider(t),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Total Payable',
+                      style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w800,
+                          color: t.text)),
+                  Text('₹${_finalAmount.toInt()}',
+                      style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: kDGold)),
+                ],
+              ),
+              if (_totalSaved > 0) ...[
+                const SizedBox(height: 10),
+                TweenAnimationBuilder<double>(
+                  key: ValueKey(_totalSaved),
+                  tween: Tween(begin: 0.9, end: 1),
+                  duration: const Duration(milliseconds: 350),
+                  curve: Curves.elasticOut,
+                  builder: (_, scale, child) =>
+                      Transform.scale(scale: scale, child: child),
+                  child: Container(
                     width: double.infinity,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 9),
                     decoration: BoxDecoration(
                       color: kDGreen.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
@@ -356,19 +426,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             fontWeight: FontWeight.w800,
                             fontSize: 12.5)),
                   ),
-                ],
+                ),
               ],
-            ),
+            ],
           ),
+        ),
+        const SizedBox(height: 16),
 
-          const SizedBox(height: 16),
-
-          // ── Coupon section ──
-          Container(
+        // ── Coupon section ──
+        AnimatedBuilder(
+          animation: _shakeCtrl,
+          builder: (context, child) {
+            final dx = (_couponError != null)
+                ? (8 * (1 - _shakeCtrl.value) *
+                    (0.5 - ((_shakeCtrl.value * 4) % 1)).sign)
+                : 0.0;
+            return Transform.translate(offset: Offset(dx, 0), child: child);
+          },
+          child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: t.card,
-              border: Border.all(color: t.line),
+              border: Border.all(
+                  color: _couponError != null
+                      ? const Color(0xFFC0392B).withOpacity(0.5)
+                      : t.line),
               borderRadius: BorderRadius.circular(16),
               boxShadow: t.shadow,
             ),
@@ -430,12 +512,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           style: TextStyle(color: t.text),
                           decoration: InputDecoration(
                             hintText: 'Enter coupon code',
-                            hintStyle: TextStyle(color: t.muted, fontSize: 13.5),
+                            hintStyle:
+                                TextStyle(color: t.muted, fontSize: 13.5),
                             filled: true,
                             fillColor: t.chip,
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide.none),
+                                borderSide: BorderSide(color: t.line)),
+                            enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(color: t.line)),
+                            focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: const BorderSide(
+                                    color: kDGold, width: 1.5)),
                             contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 13),
                           ),
@@ -502,8 +592,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             horizontal: 13, vertical: 11),
                         decoration: BoxDecoration(
                           color: kDGold.withOpacity(0.07),
-                          border: Border.all(
-                              color: kDGold.withOpacity(0.35)),
+                          border: Border.all(color: kDGold.withOpacity(0.35)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -541,57 +630,139 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 22),
 
-          const SizedBox(height: 22),
-
-          // ── Pay button ──
-          ElevatedButton(
-            onPressed: _paying ? null : _pay,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: kDGold,
-              foregroundColor: const Color(0xFF1A1A1A),
-              minimumSize: const Size(double.infinity, 54),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              elevation: 0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_paying)
-                  const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2.2, color: Color(0xFF1A1A1A)))
-                else
-                  const Icon(Icons.lock_rounded, size: 18),
-                const SizedBox(width: 8),
-                Text(
-                    _paying
-                        ? 'Please wait…'
-                        : 'Pay Securely  ·  ₹${_finalAmount.toInt()}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 16)),
-              ],
-            ),
+        // ── Pay button ──
+        ElevatedButton(
+          onPressed: _payState != _PayState.idle ? null : _pay,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kDGold,
+            foregroundColor: const Color(0xFF1A1A1A),
+            minimumSize: const Size(double.infinity, 54),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
           ),
-          const SizedBox(height: 12),
-          Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.verified_user_rounded, size: 14, color: t.muted),
-              const SizedBox(width: 5),
-              Text('100% secure payments powered by Razorpay',
-                  style: TextStyle(fontSize: 11.5, color: t.muted)),
+              const Icon(Icons.lock_rounded, size: 18),
+              const SizedBox(width: 8),
+              Text('Pay Securely  ·  ₹${_finalAmount.toInt()}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w800, fontSize: 16)),
             ],
           ),
-        ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.verified_user_rounded, size: 14, color: t.muted),
+            const SizedBox(width: 5),
+            Text('100% secure payments powered by Razorpay',
+                style: TextStyle(fontSize: 11.5, color: t.muted)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ── Full-screen pay overlay (loading / success / failed) ──
+  Widget _payOverlay(DT t) {
+    return Positioned.fill(
+      child: Container(
+        color: Colors.black.withOpacity(0.75),
+        child: Center(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _payState == _PayState.loading
+                ? Column(
+                    key: const ValueKey('loading'),
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      SizedBox(
+                        width: 54,
+                        height: 54,
+                        child: CircularProgressIndicator(
+                            color: kDGold, strokeWidth: 3.5),
+                      ),
+                      SizedBox(height: 22),
+                      Text('Here we go! 🚀',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800)),
+                      SizedBox(height: 6),
+                      Text('Opening secure payment…',
+                          style:
+                              TextStyle(color: Colors.white70, fontSize: 13)),
+                    ],
+                  )
+                : _payState == _PayState.success
+                    ? _resultBadge(
+                        key: 'success',
+                        icon: Icons.check_rounded,
+                        color: kDGreen,
+                        title: 'Payment Successful!',
+                        subtitle: 'Unlocking your content…',
+                      )
+                    : _resultBadge(
+                        key: 'failed',
+                        icon: Icons.close_rounded,
+                        color: const Color(0xFFC0392B),
+                        title: 'Payment Failed',
+                        subtitle: 'No money was deducted. Try again.',
+                      ),
+          ),
+        ),
       ),
     );
   }
 
-  // Standard breakdown row
+  Widget _resultBadge({
+    required String key,
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+  }) {
+    return Column(
+      key: ValueKey(key),
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.elasticOut,
+          builder: (_, v, __) => Transform.scale(
+            scale: v,
+            child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                shape: BoxShape.circle,
+                border: Border.all(color: color, width: 3),
+              ),
+              child: Icon(icon, color: color, size: 52),
+            ),
+          ),
+        ),
+        const SizedBox(height: 22),
+        Text(title,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 19,
+                fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        Text(subtitle,
+            style: const TextStyle(color: Colors.white70, fontSize: 13)),
+      ],
+    );
+  }
+
   Widget _row(DT t, String label, String value,
       {Color? valueColor, double valueSize = 13.5}) {
     return Padding(
@@ -614,7 +785,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  // Fee row with strikethrough + FREE badge
   Widget _feeRow(DT t, String label, String struckAmount) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
