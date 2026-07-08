@@ -34,6 +34,8 @@ dependencies:
   confetti: ^0.7.0
   audioplayers: ^6.1.0
   share_plus: ^7.2.2
+  firebase_messaging: ^14.9.4
+  flutter_local_notifications: ^17.2.2
 
 dev_dependencies:
   flutter_test:
