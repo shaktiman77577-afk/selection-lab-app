@@ -536,20 +536,25 @@ class _DashboardTabState extends State<DashboardTab> {
 
     final slides = <Widget>[
       for (final sd in slideData)
-        _heroSlide(
-          title: (sd['title'] ?? '').toString(),
-          subtitle: (sd['subtitle'] ?? '').toString(),
-          emoji: (sd['emoji'] ?? '').toString(),
-          buttons: [
-            actionBtn((sd['primary_label'] ?? '').toString(),
-                (sd['primary_action'] ?? '').toString()),
-            actionBtn((sd['secondary_label'] ?? '').toString(),
-                (sd['secondary_action'] ?? '').toString(),
-                ghost: true),
-          ],
-        ),
+        if ((sd['type'] ?? 'content').toString() == 'image')
+          _adSlide(
+            imageUrl: (sd['image_url'] ?? '').toString(),
+            action: (sd['primary_action'] ?? '').toString(),
+          )
+        else
+          _heroSlide(
+            title: (sd['title'] ?? '').toString(),
+            subtitle: (sd['subtitle'] ?? '').toString(),
+            emoji: (sd['emoji'] ?? '').toString(),
+            buttons: [
+              actionBtn((sd['primary_label'] ?? '').toString(),
+                  (sd['primary_action'] ?? '').toString()),
+              actionBtn((sd['secondary_label'] ?? '').toString(),
+                  (sd['secondary_action'] ?? '').toString(),
+                  ghost: true),
+            ],
+          ),
     ];
-
     // Admin-added promo slides (Banners with a link) join the hero carousel.
     for (final b in _banners) {
       final img = _bannerImage(b);
@@ -628,6 +633,28 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
+  Widget _adSlide({required String imageUrl, required String action}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: GestureDetector(
+        onTap: action.trim().isEmpty ? null : _heroAction(action),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: double.infinity,
+            color: Colors.white,
+            child: imageUrl.trim().isEmpty
+                ? const SizedBox.shrink()
+                : Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain, // shows full image, no cropping
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
   Widget _heroSlide({
     required String title,
     required String subtitle,
