@@ -9,6 +9,7 @@ import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
 import 'mock_instructions_screen.dart';
+import '../../../core/utils/share_helper.dart';
 
 class MockSeriesDetailScreen extends StatefulWidget {
   final int seriesId;
@@ -138,6 +139,18 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontWeight: FontWeight.w800, color: t.text)),
+        actions: [
+          if (_series != null)
+            IconButton(
+              icon: Icon(Icons.share_rounded, color: t.text),
+              onPressed: () => ShareHelper.share(
+                type: 'mock',
+                id: _series!['id'],
+                title: _series!['title']?.toString() ?? 'Mock Test Series',
+                subtitle: (_series!['description'] ?? '').toString(),
+              ),
+            ),
+        ],
       ),
       body: _loading
           ? Center(child: Text('Loading…', style: TextStyle(color: t.muted)))
