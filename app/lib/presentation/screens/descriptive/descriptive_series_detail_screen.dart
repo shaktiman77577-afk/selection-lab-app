@@ -85,31 +85,32 @@ class _DescriptiveSeriesDetailScreenState
 
   Future<void> _buy() async {
     final auth = context.read<AuthProvider>();
+  Future<void> _buy() async {
+    final auth = context.read<AuthProvider>();
     final uid = auth.user?['id'] as int?;
     if (uid == null) {
       _snack('Please log in to continue.');
       return;
     }
-    setState(() => _buying = true);
-    _razorpay.payForDescriptive(
+    final result = await Navigator.push(
       context,
-      userId: uid,
-      seriesId: widget.seriesId,
-      userName: (auth.user?['name'] ?? 'Student').toString(),
-      userEmail: (auth.user?['email'] ?? '').toString(),
-      onSuccess: () {
-        if (!mounted) return;
-        setState(() => _buying = false);
-        _snack('Series unlocked! You can now attempt all tests.');
-        _load();
-      },
-      onError: (err) {
-        if (!mounted) return;
-        setState(() => _buying = false);
-        _snack(err);
-      },
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(
+          productType: 'descriptive',
+          productId: widget.seriesId,
+          title: _series?['title']?.toString() ?? 'Descriptive Series',
+          price: _price,
+          originalPrice: _orig > _price ? _orig : _price,
+          onSuccess: () {},
+        ),
+      ),
     );
+    if (result == true && mounted) {
+      _snack('Series unlocked! You can now attempt all tests.');
+      _load();
+    }
   }
+
 
   void _openTest(Map<String, dynamic> t) {
     if (context.read<AuthProvider>().user?['id'] == null) {
