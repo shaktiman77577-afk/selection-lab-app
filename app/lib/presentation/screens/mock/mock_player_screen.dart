@@ -50,6 +50,8 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
   void dispose() {
     _timer?.cancel();
     super.dispose();
+  }
+
   // ── Pause / Resume (save progress locally) ──
   int? _uidForKey;
   String get _progKey => 'mock_progress_${_uidForKey ?? 0}_${widget.testId}';
