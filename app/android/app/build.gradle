@@ -12,7 +12,7 @@ android {
         keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
     }
 
-    namespace "com.selectionlab.selection_lab"
+    namespace "com.selectionlab"
     compileSdk 34
     ndkVersion "27.0.12077973"
 
@@ -43,7 +43,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.selectionlab.selection_lab"
+        applicationId "com.selectionlab"
         minSdk 21
         targetSdk 34
         versionCode 1
