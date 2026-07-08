@@ -4,10 +4,10 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'dart:convert';
 import '../constants/app_constants.dart';
 
-/// Reusable Razorpay payment handler for courses and PDFs.
-/// Usage:
+/// Reusable Razorpay payment handler for courses, PDFs, mock series, and
+/// descriptive series. Usage:
 ///   final service = RazorpayService();
-///   service.payForCourse(context, userId: 5, courseId: 1, onSuccess: () {...});
+///   service.payForCourse(context, userId: 5, courseId: 1, couponCode: 'SAVE20', onSuccess: () {...});
 class RazorpayService {
   late Razorpay _razorpay;
 
@@ -38,6 +38,7 @@ class RazorpayService {
     required int courseId,
     required String userName,
     required String userEmail,
+    String? couponCode,
     required void Function() onSuccess,
     required void Function(String error) onError,
   }) async {
@@ -50,7 +51,7 @@ class RazorpayService {
       final res = await http.post(
         Uri.parse('${AppConstants.apiUrl}/payments/course-order'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'course_id': courseId}),
+        body: jsonEncode({'user_id': userId, 'course_id': courseId, 'coupon_code': couponCode}),
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
@@ -61,7 +62,7 @@ class RazorpayService {
 
       // 2. Set verify data for after payment
       _verifyEndpoint = '${AppConstants.apiUrl}/payments/verify-course';
-      _verifyBody = {'user_id': userId, 'course_id': courseId};
+      _verifyBody = {'user_id': userId, 'course_id': courseId, 'coupon_code': couponCode};
 
       // 3. Open Razorpay checkout
       _openCheckout(
@@ -122,7 +123,6 @@ class RazorpayService {
     }
   }
 
-  // ── OPEN CHECKOUT ─────────────────────────────────────────────────────────────
   // DESCRIPTIVE SERIES PAYMENT
   Future<void> payForDescriptive(
     BuildContext context, {
@@ -130,6 +130,7 @@ class RazorpayService {
     required int seriesId,
     required String userName,
     required String userEmail,
+    String? couponCode,
     required void Function() onSuccess,
     required void Function(String error) onError,
   }) async {
@@ -141,7 +142,7 @@ class RazorpayService {
       final res = await http.post(
         Uri.parse('${AppConstants.apiUrl}/descriptive/order'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'series_id': seriesId}),
+        body: jsonEncode({'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode}),
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
@@ -151,7 +152,7 @@ class RazorpayService {
       }
 
       _verifyEndpoint = '${AppConstants.apiUrl}/descriptive/verify';
-      _verifyBody = {'user_id': userId, 'series_id': seriesId};
+      _verifyBody = {'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode};
 
       _openCheckout(
         keyId: data['key_id'],
@@ -174,6 +175,7 @@ class RazorpayService {
     required int seriesId,
     required String userName,
     required String userEmail,
+    String? couponCode,
     required void Function() onSuccess,
     required void Function(String error) onError,
   }) async {
@@ -185,7 +187,7 @@ class RazorpayService {
       final res = await http.post(
         Uri.parse('${AppConstants.apiUrl}/payments/series-order'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'user_id': userId, 'series_id': seriesId}),
+        body: jsonEncode({'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode}),
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
@@ -195,7 +197,7 @@ class RazorpayService {
       }
 
       _verifyEndpoint = '${AppConstants.apiUrl}/payments/verify-series';
-      _verifyBody = {'user_id': userId, 'series_id': seriesId};
+      _verifyBody = {'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode};
 
       _openCheckout(
         keyId: data['key_id'],
@@ -211,6 +213,7 @@ class RazorpayService {
     }
   }
 
+  // ── OPEN CHECKOUT ─────────────────────────────────────────────────────────────
   void _openCheckout({
     required String keyId,
     required String orderId,
