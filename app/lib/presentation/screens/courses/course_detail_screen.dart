@@ -6,11 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_constants.dart';
-import '../../../core/network/razorpay_service.dart';
 import '../../../data/providers/auth_provider.dart';
 import 'video_player_screen.dart';
 import 'pdf_viewer_screen.dart';
 import '../../../core/utils/share_helper.dart';
+import '../checkout/checkout_screen.dart';
 
 
 class CourseDetailScreen extends StatefulWidget {
@@ -27,7 +27,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   bool _loadingContent = true;
   late TabController _tabController;
   bool _descExpanded = false;
-  final RazorpayService _razorpay = RazorpayService();
   bool _purchasing = false;
   bool _isPurchased = false;
 
@@ -44,7 +43,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _razorpay.dispose();
     super.dispose();
   }
 
@@ -76,40 +74,41 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       );
       return;
     }
-    setState(() => _purchasing = true);
-    _razorpay.payForCourse(
+    final price = (course['price'] as num?) ?? 0;
+    final originalPrice = (course['original_price'] as num?) ?? price;
+    final result = await Navigator.push(
       context,
-      userId: userId is int ? userId : int.tryParse(userId.toString()) ?? 0,
-      courseId: course['id'] is int ? course['id'] : int.tryParse(course['id'].toString()) ?? 0,
-      userName: auth.user?['name']?.toString() ?? '',
-      userEmail: auth.user?['email']?.toString() ?? '',
-      onSuccess: () {
-        if (!mounted) return;
-        setState(() { _purchasing = false; _isPurchased = true; });
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: Theme.of(ctx).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
-            title: const Row(children: [Icon(Icons.check_circle_rounded, color: Colors.green), SizedBox(width: 8), Text('Success!')]),
-            content: const Text('Course unlocked. You can now access all content.'),
-            actions: [
-              ElevatedButton(
-                onPressed: () { Navigator.pop(ctx); _tabController.animateTo(1); },
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
-                child: const Text('Start Learning'),
-              ),
-            ],
-          ),
-        );
-      },
-      onError: (err) {
-        if (!mounted) return;
-        setState(() => _purchasing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(err), backgroundColor: Colors.red.shade700),
-        );
-      },
+      MaterialPageRoute(
+        builder: (_) => CheckoutScreen(
+          productType: 'course',
+          productId: course['id'] is int
+              ? course['id']
+              : int.tryParse(course['id'].toString()) ?? 0,
+          title: (course['title'] ?? 'Course').toString(),
+          price: price,
+          originalPrice: originalPrice,
+          onSuccess: () {},
+        ),
+      ),
     );
+    if (result == true && mounted) {
+      setState(() => _isPurchased = true);
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Theme.of(ctx).brightness == Brightness.dark ? const Color(0xFF1C1C1E) : Colors.white,
+          title: const Row(children: [Icon(Icons.check_circle_rounded, color: Colors.green), SizedBox(width: 8), Text('Success!')]),
+          content: const Text('Course unlocked. You can now access all content.'),
+          actions: [
+            ElevatedButton(
+              onPressed: () { Navigator.pop(ctx); _tabController.animateTo(1); },
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              child: const Text('Start Learning'),
+            ),
+          ],
+        ),
+      );
+    }
   }
 
   Future<void> _loadContent() async {
@@ -328,7 +327,6 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           ],
         ),
       ),
-
       // ── BOTTOM BAR ──
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
