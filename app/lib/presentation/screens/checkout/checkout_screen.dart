@@ -509,19 +509,33 @@ class _CheckoutScreenState extends State<CheckoutScreen>
                         child: TextField(
                           controller: _couponCtrl,
                           textCapitalization: TextCapitalization.characters,
-                          style: TextStyle(color: t.text),
+                          style: TextStyle(
+                              color: t.dark ? Colors.white : Colors.black87,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600),
                           decoration: InputDecoration(
                             hintText: 'Enter coupon code',
-                            hintStyle:
-                                TextStyle(color: t.muted, fontSize: 13.5),
+                            hintStyle: TextStyle(
+                                color: t.dark
+                                    ? Colors.white38
+                                    : Colors.black38,
+                                fontSize: 13.5),
                             filled: true,
-                            fillColor: t.chip,
+                            fillColor: t.dark
+                                ? Colors.white.withOpacity(0.06)
+                                : const Color(0xFFF2F3F5),
                             border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: t.line)),
+                                borderSide: BorderSide(
+                                    color: t.dark
+                                        ? Colors.white24
+                                        : Colors.black26)),
                             enabledBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: t.line)),
+                                borderSide: BorderSide(
+                                    color: t.dark
+                                        ? Colors.white24
+                                        : Colors.black26)),
                             focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 borderSide: const BorderSide(
