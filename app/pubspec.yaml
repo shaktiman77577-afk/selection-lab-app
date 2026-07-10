@@ -29,7 +29,7 @@ dependencies:
   google_sign_in: ^6.2.1
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
-  youtube_player_flutter: ^9.0.1
+  youtube_player_iframe: ^5.2.0
   webview_flutter: ^4.7.0
   confetti: ^0.7.0
   audioplayers: ^6.1.0
