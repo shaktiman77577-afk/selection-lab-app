@@ -30,14 +30,14 @@ dependencies:
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
   video_player: ^2.8.6
-  chewie: ^1.8.1
-  package_info_plus: ^4.2.0
+  chewie: ^1.8.0
   webview_flutter: ^4.7.0
   confetti: ^0.7.0
   audioplayers: ^6.1.0
   share_plus: ^7.2.2
   firebase_messaging: ^14.9.4
   flutter_local_notifications: ^17.2.2
+  package_info_plus: ^4.2.0
 
 dev_dependencies:
   flutter_test:
@@ -55,3 +55,6 @@ flutter:
   assets:
     - assets/images/
     - assets/sounds/
+
+
+Please update version code
