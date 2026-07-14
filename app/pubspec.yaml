@@ -30,7 +30,7 @@ dependencies:
   firebase_core: ^2.32.0
   firebase_auth: ^4.20.0
   video_player: ^2.8.6
-  chewie: ^1.8.1
+  chewie: ^1.8.0
   webview_flutter: ^4.7.0
   confetti: ^0.7.0
   audioplayers: ^6.1.0
