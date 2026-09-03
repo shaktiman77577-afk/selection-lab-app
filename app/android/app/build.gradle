@@ -1,4 +1,4 @@
-plugins {
+    plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
@@ -31,7 +31,7 @@ android {
     }
 
     namespace "com.selectionlab"
-    compileSdk 35
+    compileSdk 36
     ndkVersion "27.0.12077973"
 
     compileOptions {
@@ -40,8 +40,7 @@ android {
     }
 
     kotlinOptions {
-      
-    jvmTarget = "17"
+        jvmTarget = "17"
     }
 
     signingConfigs {
@@ -64,7 +63,7 @@ android {
     defaultConfig {
         applicationId "com.selectionlab"
         minSdk 21
-        targetSdk 35
+        targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
     }
