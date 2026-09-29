@@ -8,6 +8,12 @@ import '../constants/app_constants.dart';
 /// descriptive series, and live classes/batches. Usage:
 ///   final service = RazorpayService();
 ///   service.payForCourse(context, userId: 5, courseId: 1, couponCode: 'SAVE20', onSuccess: () {...});
+///
+/// 100% coupon: order endpoint `{"free": true, "unlocked": true, "order_id": null}`
+/// lautata hai — backend ne content pehle hi unlock kar diya hota hai. Tab
+/// Razorpay nahi kholte, seedha onSuccess. (Pehle app null key se Razorpay
+/// kholne ki koshish karta tha aur "Payment Failed" dikhata tha, jabki
+/// content unlock ho chuka hota tha.)
 class RazorpayService {
   late Razorpay _razorpay;
 
@@ -29,6 +35,32 @@ class RazorpayService {
 
   void dispose() {
     _razorpay.clear();
+  }
+
+  /// Backend ka `detail` kabhi string, kabhi list (422) hota hai
+  static String _msg(dynamic detail, String fallback) {
+    if (detail == null) return fallback;
+    final s = detail.toString();
+    return s.isEmpty ? fallback : s;
+  }
+
+  /// Order ka jawab: error, free unlock, ya Razorpay kholna.
+  /// true lautaye to aage Razorpay kholna hai.
+  bool _checkOrder(http.Response res, Map data,
+      void Function() onSuccess, void Function(String) onError) {
+    if (res.statusCode != 200) {
+      onError(_msg(data['detail'], 'Could not start payment'));
+      return false;
+    }
+    if (data['free'] == true) {
+      onSuccess();
+      return false;
+    }
+    if (data['key_id'] == null || data['order_id'] == null) {
+      onError('Could not start payment. Please try again.');
+      return false;
+    }
+    return true;
   }
 
   // ── COURSE PAYMENT ──────────────────────────────────────────────────────────
@@ -55,10 +87,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail'] ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       // 2. Set verify data for after payment
       _verifyEndpoint = '${AppConstants.apiUrl}/payments/verify-course';
@@ -101,10 +130,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail'] ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       _verifyEndpoint = '${AppConstants.apiUrl}/payments/verify-pdf';
       _verifyBody = {'user_id': userId, 'pdf_id': pdfId};
@@ -146,10 +172,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail']?.toString() ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       _verifyEndpoint = '${AppConstants.apiUrl}/descriptive/verify';
       _verifyBody = {'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode};
@@ -191,10 +214,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail']?.toString() ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       _verifyEndpoint = '${AppConstants.apiUrl}/payments/verify-series';
       _verifyBody = {'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode};
@@ -239,10 +259,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail']?.toString() ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       _verifyEndpoint = '${AppConstants.apiUrl}/tier2/verify';
       _verifyBody = {'user_id': userId, 'series_id': seriesId, 'coupon_code': couponCode};
@@ -262,6 +279,7 @@ class RazorpayService {
   }
 
   // ── LIVE CLASS / BATCH PAYMENT (uses /live/order + /live/verify) ─────────────
+  // Live ki API coupon nahi leti — isliye yahan coupon_code bhi nahi.
   Future<void> payForLive(
     BuildContext context, {
     required int userId,
@@ -284,10 +302,7 @@ class RazorpayService {
       ).timeout(const Duration(seconds: 15));
 
       final data = jsonDecode(res.body);
-      if (res.statusCode != 200) {
-        onError(data['detail']?.toString() ?? 'Could not start payment');
-        return;
-      }
+      if (!_checkOrder(res, data, onSuccess, onError)) return;
 
       _verifyEndpoint = '${AppConstants.apiUrl}/live/verify';
       _verifyBody = {'user_id': userId, 'kind': kind, 'item_id': itemId};
@@ -354,7 +369,7 @@ class RazorpayService {
       if (res.statusCode == 200 && data['success'] == true) {
         _onSuccess?.call();
       } else {
-        _onError?.call(data['detail'] ?? 'Payment verification failed');
+        _onError?.call(_msg(data['detail'], 'Payment verification failed'));
       }
     } catch (e) {
       _onError?.call('Verification error: $e');
