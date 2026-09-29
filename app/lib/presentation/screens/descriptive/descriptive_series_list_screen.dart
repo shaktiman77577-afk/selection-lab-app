@@ -1,12 +1,13 @@
 // lib/presentation/screens/descriptive/descriptive_series_list_screen.dart
 //
-// UI matched 1:1 with the website (selectionlab.in/descriptive).
+// Redesign (Sep 2026): clean list — filter (All / Enrolled / Free) aur
+// ek jaise ProductCard.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
-import 'descriptive_theme.dart';
 import 'descriptive_series_detail_screen.dart';
 
 class DescriptiveSeriesListScreen extends StatefulWidget {
@@ -22,6 +23,7 @@ class _DescriptiveSeriesListScreenState
   List<Map<String, dynamic>> _series = [];
   bool _loading = true;
   String? _error;
+  int _filter = 0; // 0 All, 1 Enrolled, 2 Free
 
   @override
   void initState() {
@@ -29,14 +31,18 @@ class _DescriptiveSeriesListScreenState
     _load();
   }
 
+  int? get _uid {
+    final raw = context.read<AuthProvider>().user?['id'];
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
+  }
+
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      _loading = _series.isEmpty;
       _error = null;
     });
-    final uid = context.read<AuthProvider>().user?['id'] as int?;
     try {
-      final list = await DescriptiveApi.series(uid);
+      final list = await DescriptiveApi.series(_uid);
       if (!mounted) return;
       setState(() {
         _series = list;
@@ -45,209 +51,94 @@ class _DescriptiveSeriesListScreenState
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not load tests. Pull down to refresh.';
+        _error = 'Could not load tests. Check your internet.';
         _loading = false;
       });
     }
   }
 
+  num _num(dynamic v) => v is num ? v : num.tryParse('${v ?? ''}') ?? 0;
+
+  List<Map<String, dynamic>> get _shown {
+    switch (_filter) {
+      case 1:
+        return _series.where((s) => s['is_purchased'] == true).toList();
+      case 2:
+        return _series.where((s) => _num(s['price']) <= 0).toList();
+      default:
+        return _series;
+    }
+  }
+
+  Future<void> _open(Map<String, dynamic> s) async {
+    final id = s['id'] is int ? s['id'] as int : int.tryParse('${s['id']}');
+    if (id == null) return;
+    await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => DescriptiveSeriesDetailScreen(seriesId: id)));
+    if (mounted) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final t = DT(Theme.of(context).brightness == Brightness.dark);
+    final t = dtOf(context);
+    final shown = _shown;
+    final state = ListStateView(
+      loading: _loading,
+      error: _error,
+      empty: shown.isEmpty,
+      emptyText: _filter == 1
+          ? 'You have not enrolled in any descriptive series yet.'
+          : 'New descriptive series launching soon — join our Telegram for updates!',
+      emptyIcon: Icons.edit_note_rounded,
+      onRetry: _load,
+    );
 
     return Scaffold(
       backgroundColor: t.bg,
-      appBar: AppBar(
-        backgroundColor: t.bg,
-        elevation: 0,
-        title: Text('Descriptive Tests',
-            style: TextStyle(fontWeight: FontWeight.w800, color: t.text)),
-        iconTheme: IconThemeData(color: t.text),
-      ),
+      appBar: AppBar(title: const Text('Descriptive Tests')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          padding: const EdgeInsets.only(top: 12, bottom: 32),
           children: [
-            DescriptiveHero(
-              title: 'Descriptive Writing Practice',
-              subtitle:
-                  'Essay, Précis and Letter writing tests for banking & descriptive exams. '
-                  'Write against the clock, then compare with a model answer and your auto-score.',
-            ),
             Padding(
-              padding: const EdgeInsets.only(top: 26, bottom: 10),
-              child: Text('Test Series',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Text(
+                  'Essay, précis and letter writing — write against the clock, '
+                  'then compare with a model answer and your auto-score.',
+                  style:
+                      TextStyle(fontSize: 13, height: 1.5, color: t.muted)),
             ),
-            if (_loading)
-              Padding(
-                  padding: const EdgeInsets.only(top: 30),
-                  child: Center(
-                      child: Text('Loading tests…',
-                          style: TextStyle(color: t.muted))))
-            else if (_error != null)
-              Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Center(
-                      child: Column(children: [
-                    Text(_error!,
-                        style: const TextStyle(color: Color(0xFFC0392B))),
-                    const SizedBox(height: 10),
-                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
-                  ])))
-            else if (_series.isEmpty)
-              Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Text(
-                      'New descriptive series launching soon — join our Telegram for updates!',
-                      style: TextStyle(color: t.muted, fontSize: 14)))
+            FilterChips(
+              options: const ['All', 'Enrolled', 'Free'],
+              selected: _filter,
+              onChanged: (i) => setState(() => _filter = i),
+            ),
+            const SizedBox(height: 12),
+            if (state.show)
+              state
             else
-              GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 0.72,
+              for (final s in shown)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: ProductCard(
+                    img: '${s['thumbnail_url_mobile'] ?? s['thumbnail_url'] ?? ''}',
+                    title: '${s['title'] ?? ''}',
+                    meta: _num(s['test_count']) > 0
+                        ? '${_num(s['test_count']).toInt()} tests'
+                        : 'Writing tests',
+                    price: _num(s['price']),
+                    original: _num(s['original_price']),
+                    owned: s['is_purchased'] == true,
+                    fallbackIcon: Icons.edit_note_rounded,
+                    onTap: () => _open(s),
+                  ),
                 ),
-                itemCount: _series.length,
-                itemBuilder: (_, i) => _card(_series[i], t),
-              ),
           ],
         ),
       ),
     );
   }
-
-  Widget _card(Map<String, dynamic> s, DT t) {
-    final title = (s['title'] ?? '').toString();
-    final thumb = (s['thumbnail_url'] ?? '').toString();
-    final price = _num(s['price']);
-    final orig = _num(s['original_price']);
-    final free = price <= 0;
-    final purchased = s['is_purchased'] == true;
-    final locked = !free && !purchased;
-
-    final badgeBg = locked
-        ? Colors.black.withOpacity(0.65)
-        : free
-            ? kDGreen
-            : kDGold;
-    final badgeFg = (locked || free) ? Colors.white : const Color(0xFF1A1A1A);
-    final badgeText = locked ? '🔒 Locked' : (free ? 'FREE' : '✓ Unlocked');
-
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                DescriptiveSeriesDetailScreen(seriesId: s['id'] as int),
-          ),
-        );
-        _load();
-      },
-      child: Container(
-        decoration: BoxDecoration(
-          color: t.card,
-          border: Border.all(color: t.line),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withOpacity(t.dark ? 0.25 : 0.05),
-                blurRadius: 8,
-                offset: const Offset(0, 3)),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: thumb.isNotEmpty
-                      ? Image.network(thumb,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _thumbFallback(t))
-                      : _thumbFallback(t),
-                ),
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                        color: badgeBg,
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text(badgeText,
-                        style: TextStyle(
-                            color: badgeFg,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800)),
-                  ),
-                ),
-              ],
-            ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 36,
-                    child: Text(title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            height: 1.4,
-                            color: t.text)),
-                  ),
-                  const SizedBox(height: 6),
-                  free
-                      ? const Text('FREE',
-                          style: TextStyle(
-                              color: kDGreen,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 13.5))
-                      : Row(
-                          children: [
-                            Text('₹${price.toInt()}',
-                                style: const TextStyle(
-                                    color: kDGold,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 13.5)),
-                            if (orig > price) ...[
-                              const SizedBox(width: 5),
-                              Text('₹${orig.toInt()}',
-                                  style: TextStyle(
-                                      color: t.muted,
-                                      fontSize: 11.5,
-                                      decoration: TextDecoration.lineThrough)),
-                            ],
-                          ],
-                        ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _thumbFallback(DT t) => Container(
-        color: t.chip,
-        child: const Center(child: Text('✍️', style: TextStyle(fontSize: 30))),
-      );
-
-  num _num(dynamic v) =>
-      v is num ? v : num.tryParse((v ?? '').toString()) ?? 0;
 }

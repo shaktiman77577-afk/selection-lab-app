@@ -180,3 +180,221 @@ class EmptyState extends StatelessWidget {
     );
   }
 }
+
+/// List screens ka ek jaisa card — course, mock series, descriptive series.
+/// Bayen poster, dayen naam, chhoti jaankari, daam / ENROLLED.
+class ProductCard extends StatelessWidget {
+  final String img;
+  final String title;
+  final String meta;
+  final num price;
+  final num original;
+  final bool owned;
+  final IconData fallbackIcon;
+  final String? highlight; // jaise "2 free tests" — hara
+  final VoidCallback onTap;
+
+  const ProductCard({
+    super.key,
+    required this.img,
+    required this.title,
+    required this.meta,
+    required this.price,
+    required this.original,
+    required this.owned,
+    required this.fallbackIcon,
+    required this.onTap,
+    this.highlight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = dtOf(context);
+    final free = price <= 0;
+    final off = (!free && original > price)
+        ? ((1 - price / original) * 100).round()
+        : 0;
+
+    Widget fallback() => Container(
+        color: t.chip, child: Icon(fallbackIcon, color: t.muted, size: 30));
+
+    return AppCard(
+      padding: const EdgeInsets.all(10),
+      onTap: onTap,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 96,
+              height: 96,
+              child: img.isEmpty
+                  ? fallback()
+                  : Container(
+                      color: t.chip,
+                      child: Image.network(img,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) => fallback()),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SizedBox(
+              height: 96,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                          color: t.text)),
+                  const SizedBox(height: 4),
+                  if (meta.isNotEmpty)
+                    Text(meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontSize: 12, color: t.muted)),
+                  if (highlight != null && !owned) ...[
+                    const SizedBox(height: 2),
+                    Text(highlight!,
+                        maxLines: 1,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: kDGreen)),
+                  ],
+                  const Spacer(),
+                  Row(
+                    children: [
+                      if (owned)
+                        const Tag('ENROLLED', color: kDGreen)
+                      else if (free)
+                        const Text('FREE',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: kDGreen))
+                      else ...[
+                        Text('₹${price.toInt()}',
+                            style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: t.text)),
+                        if (off > 0) ...[
+                          const SizedBox(width: 6),
+                          Text('₹${original.toInt()}',
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: t.muted,
+                                  decoration: TextDecoration.lineThrough)),
+                          const SizedBox(width: 6),
+                          Tag('$off% OFF', color: const Color(0xFFB47F00)),
+                        ],
+                      ],
+                      const Spacer(),
+                      Icon(Icons.chevron_right_rounded, color: t.muted),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Upar ke filter chips — All / Enrolled / Free
+class FilterChips extends StatelessWidget {
+  final List<String> options;
+  final int selected;
+  final ValueChanged<int> onChanged;
+  const FilterChips(
+      {super.key,
+      required this.options,
+      required this.selected,
+      required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = dtOf(context);
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: options.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final on = i == selected;
+          return GestureDetector(
+            onTap: () => onChanged(i),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: on ? t.primary : t.card,
+                border: Border.all(color: on ? t.primary : t.line),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Text(options[i],
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: on
+                          ? (t.dark ? const Color(0xFF0F1115) : Colors.white)
+                          : t.text2)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Loading / error / khaali — list screens ka common hissa
+class ListStateView extends StatelessWidget {
+  final bool loading;
+  final String? error;
+  final bool empty;
+  final String emptyText;
+  final IconData emptyIcon;
+  final VoidCallback onRetry;
+  const ListStateView({
+    super.key,
+    required this.loading,
+    required this.error,
+    required this.empty,
+    required this.emptyText,
+    required this.emptyIcon,
+    required this.onRetry,
+  });
+
+  /// true ho to list ki jagah ye dikhao
+  bool get show => loading || error != null || empty;
+
+  @override
+  Widget build(BuildContext context) {
+    if (loading) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 60),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (error != null) {
+      return EmptyState(
+          icon: Icons.wifi_off_rounded,
+          text: error!,
+          actionLabel: 'Retry',
+          onAction: onRetry);
+    }
+    return EmptyState(icon: emptyIcon, text: emptyText);
+  }
+}
