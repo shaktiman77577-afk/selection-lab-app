@@ -1,12 +1,15 @@
 // lib/presentation/screens/descriptive/descriptive_theme.dart
 //
-// Shared colour tokens + widgets so every Descriptive screen matches the
-// website (selectionlab.in) exactly.
+// Shared colour tokens + widgets. Poora app inhi tokens se rang leta hai.
+//
+// Redesign (Sep 2026): Testbook jaisa clean — halka grey background, safed
+// card, patli border, shadow nahi. Pehle ye website ke beige/brown rang the.
+// Navy aur gold waise hi hain (brand).
 
 import 'package:flutter/material.dart';
 import '../checkout/checkout_screen.dart';
 
-// website accent colours
+// brand accent colours
 const kDNavy = Color(0xFF1A2F55);
 const kDNavy2 = Color(0xFF2C4A85);
 const kDGold = Color(0xFFFFAB00);
@@ -14,31 +17,32 @@ const kDGreen = Color(0xFF2E8B4A);
 const kDPurchasedBg = Color(0x335DD97C); // rgba(93,217,124,0.2)
 const kDPurchasedFg = Color(0xFFC8F7D4);
 
-/// Theme-aware neutral tokens (map the website's CSS variables).
+/// Theme-aware neutral tokens.
 class DT {
   final bool dark;
   const DT(this.dark);
 
-  // Exact values from the website theme (layout.tsx :root / [data-theme=dark]).
-  Color get bg => dark ? const Color(0xFF0D0B08) : const Color(0xFFF6F4EE);
-  Color get card => dark ? const Color(0xFF16130E) : Colors.white;
-  Color get text => dark ? Colors.white : const Color(0xFF221C10);
-  Color get text2 => dark ? const Color(0xFFCFC6B3) : const Color(0xFF4C4536);
-  Color get muted => dark ? const Color(0xFF9A917F) : const Color(0xFF776F5C);
+  Color get bg => dark ? const Color(0xFF0F1115) : const Color(0xFFF5F6FA);
+  Color get card => dark ? const Color(0xFF181B22) : Colors.white;
+  Color get text => dark ? Colors.white : const Color(0xFF1B2331);
+  Color get text2 => dark ? const Color(0xFFC9CED8) : const Color(0xFF3D4656);
+  Color get muted => dark ? const Color(0xFF8C93A3) : const Color(0xFF6B7385);
   Color get line =>
-      dark ? Colors.white.withOpacity(0.10) : Colors.black.withOpacity(0.10);
+      dark ? Colors.white.withOpacity(0.10) : Colors.black.withOpacity(0.08);
   Color get chip =>
-      dark ? Colors.white.withOpacity(0.07) : Colors.black.withOpacity(0.05);
+      dark ? Colors.white.withOpacity(0.07) : const Color(0xFFEEF0F5);
+  /// Khule (unlocked) item ki border — halka navy
   Color get border => dark
-      ? const Color(0xFFFFAB00).withOpacity(0.25)
-      : const Color(0xFFB48200).withOpacity(0.4);
+      ? const Color(0xFF7C9BE0).withOpacity(0.30)
+      : kDNavy.withOpacity(0.22);
+  /// Link / primary rang — dark me navy dikhta nahi, isliye halka neela
+  Color get primary => dark ? const Color(0xFF7C9BE0) : kDNavy;
 
-  List<BoxShadow> get shadow => dark
-      ? const []
-      : [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 8, offset: const Offset(0, 1))];
+  /// Clean look: shadow nahi, sirf border
+  List<BoxShadow> get shadow => const [];
 }
 
-/// The navy gradient hero with a soft gold circle, exactly like the website.
+/// The navy gradient hero with a soft gold circle.
 class DescriptiveHero extends StatelessWidget {
   final String title;
   final String? subtitle;
@@ -49,7 +53,7 @@ class DescriptiveHero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -69,18 +73,18 @@ class DescriptiveHero extends StatelessWidget {
                 height: 150,
                 decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: kDGold.withOpacity(0.15)),
+                    color: kDGold.withOpacity(0.12)),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+              padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title,
                       style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 22,
+                          fontSize: 20,
                           fontWeight: FontWeight.w800,
                           height: 1.3)),
                   if (subtitle != null && subtitle!.isNotEmpty) ...[
@@ -89,7 +93,7 @@ class DescriptiveHero extends StatelessWidget {
                         style: TextStyle(
                             color: Colors.white.withOpacity(0.85),
                             fontSize: 13.5,
-                            height: 1.6)),
+                            height: 1.55)),
                   ],
                   if (footer != null) ...[
                     const SizedBox(height: 14),
@@ -105,7 +109,7 @@ class DescriptiveHero extends StatelessWidget {
   }
 }
 
-/// Gold pill button (the website's `goldBtn`).
+/// Gold pill button — navy hero ke upar CTA ke liye.
 class GoldButton extends StatelessWidget {
   final String label;
   final VoidCallback? onTap;
