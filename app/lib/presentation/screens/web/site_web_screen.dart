@@ -8,6 +8,8 @@
 // wahan app apna user aur theme localStorage me likh deta hai, phir asli page
 // par location.replace() — isliye robots.txt back-history me nahi rehta.
 //
+// Login token bhi "sl_token" me jata hai — website har API call me bhejti hai.
+//
 // App mode: sessionStorage "sl-app" bhi set hota hai — website us tab me
 // apna side menu chhupa kar sirf "Back to app" dikhati hai, jo /__app/close
 // kholta hai; yahan wo URL pakad kar screen band hoti hai.
@@ -20,9 +22,11 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../data/providers/auth_provider.dart';
 
 class SiteWebScreen extends StatefulWidget {
@@ -102,9 +106,21 @@ class _SiteWebScreenState extends State<SiteWebScreen> {
     _booted = true;
     final sep = widget.path.contains('?') ? '&' : '?';
     final target = '${widget.path}${sep}app=1';
+    // App ka login token bhi — website har API call me isse bhejti hai.
+    // Token na ho to purana hata do, taaki kisi aur account ka na chala jaye.
+    String? token;
+    try {
+      token = (await SharedPreferences.getInstance())
+          .getString(AppConstants.tokenKey);
+    } catch (_) {}
+    if (!mounted) return;
+    final tokenJs = (token == null || token.isEmpty)
+        ? "localStorage.removeItem('sl_token');"
+        : "localStorage.setItem('sl_token', ${jsonEncode(token)});";
     final js = '''
 try {
   localStorage.setItem('sl_user', ${jsonEncode(jsonEncode(_webUser()))});
+  $tokenJs
   localStorage.setItem('sl-theme', ${jsonEncode(_dark ? 'dark' : 'light')});
   sessionStorage.setItem('sl-app', '1');
 } catch (e) {}
