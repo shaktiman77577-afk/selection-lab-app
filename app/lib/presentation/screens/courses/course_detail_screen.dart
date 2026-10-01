@@ -112,8 +112,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Future<void> _loadContent() async {
     try {
+      // user_id zaroori: backend paid course ke video/PDF links ab sirf
+      // kharidne wale ko deta hai (baaki ko "locked": true, url khaali)
+      final uid = context.read<AuthProvider>().user?['id'];
+      final q = uid != null ? '?user_id=$uid' : '';
       final res = await http
-          .get(Uri.parse('${AppConstants.apiUrl}/courses/${course['id']}/content'))
+          .get(Uri.parse('${AppConstants.apiUrl}/courses/${course['id']}/content$q'))
           .timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
@@ -160,6 +164,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     );
     if (result == true && mounted) {
       setState(() => _isPurchased = true);
+      _loadContent(); // ab links khule milenge
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -197,7 +202,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   void _openContent(Map<String, dynamic> item) {
     HapticFeedback.lightImpact();
     // Paid course: bina kharide sirf free preview khulta hai
-    if (!_owned && item['is_free_preview'] != true) {
+    if ((!_owned && item['is_free_preview'] != true) || item['locked'] == true) {
       _snack('Buy this course to unlock all lessons.');
       return;
     }
@@ -671,7 +676,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     final type = item['content_type'] ?? 'video';
     final isVideo = type == 'video';
     final preview = item['is_free_preview'] == true;
-    final locked = !_owned && !preview;
+    final locked = (!_owned && !preview) || item['locked'] == true;
 
     final IconData icon;
     final Color color;
