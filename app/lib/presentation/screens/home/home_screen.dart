@@ -840,7 +840,10 @@ class _DashboardTabState extends State<DashboardTab> {
           children: [
             AspectRatio(
               aspectRatio: 16 / 10,
-              child: img.isEmpty
+              // ClipRect zaroori: blur apne dabbe se bahar phail kar neeche
+              // naam/daam par aa jata tha
+              child: ClipRect(
+                child: img.isEmpty
                   ? Container(
                       color: t.chip, child: Icon(fallback, color: t.muted))
                   : Stack(fit: StackFit.expand, children: [
@@ -856,6 +859,7 @@ class _DashboardTabState extends State<DashboardTab> {
                           errorBuilder: (_, __, ___) =>
                               Icon(fallback, color: t.muted)),
                     ]),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),

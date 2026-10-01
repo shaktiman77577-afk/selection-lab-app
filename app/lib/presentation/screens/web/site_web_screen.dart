@@ -8,6 +8,9 @@
 // wahan app apna user aur theme localStorage me likh deta hai, phir asli page
 // par location.replace() — isliye robots.txt back-history me nahi rehta.
 //
+// Android WebView robots.txt ko back-history me rakh leta hai — wahan wapas
+// pahunchne par screen band hoti hai (_onStarted), page nahi dikhta.
+//
 // Login token bhi "sl_token" me jata hai — website har API call me bhejti hai.
 //
 // App mode: sessionStorage "sl-app" bhi set hota hai — website us tab me
@@ -57,6 +60,7 @@ class _SiteWebScreenState extends State<SiteWebScreen> {
         onProgress: (p) {
           if (mounted) setState(() => _progress = p);
         },
+        onPageStarted: _onStarted,
         onPageFinished: _onFinished,
         onNavigationRequest: _onNav,
         onWebResourceError: (e) {
@@ -99,6 +103,15 @@ class _SiteWebScreenState extends State<SiteWebScreen> {
       'target_exam': u['target_exam'],
       'profile_completed': u['profile_completed'] ?? true,
     };
+  }
+
+  /// Login wala robots.txt page Android WebView ki back-history me reh jata
+  /// hai (location.replace ke bawajood). Back karke wahan pahunche to
+  /// matlab website ke pehle page se bhi peeche — screen band karo.
+  void _onStarted(String url) {
+    if (_booted && url.contains('/robots.txt') && mounted) {
+      Navigator.of(context).pop();
+    }
   }
 
   Future<void> _onFinished(String url) async {
