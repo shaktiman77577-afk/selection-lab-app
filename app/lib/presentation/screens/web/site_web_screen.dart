@@ -8,6 +8,10 @@
 // wahan app apna user aur theme localStorage me likh deta hai, phir asli page
 // par location.replace() — isliye robots.txt back-history me nahi rehta.
 //
+// App mode: sessionStorage "sl-app" bhi set hota hai — website us tab me
+// apna side menu chhupa kar sirf "Back to app" dikhati hai, jo /__app/close
+// kholta hai; yahan wo URL pakad kar screen band hoti hai.
+//
 // Payment website ke apne Razorpay se hi hoti hai. UPI apps (upi://,
 // intent://) aur bahar ke links phone ke apps/browser me khulte hain,
 // PDF download bhi browser se.
@@ -102,6 +106,7 @@ class _SiteWebScreenState extends State<SiteWebScreen> {
 try {
   localStorage.setItem('sl_user', ${jsonEncode(jsonEncode(_webUser()))});
   localStorage.setItem('sl-theme', ${jsonEncode(_dark ? 'dark' : 'light')});
+  sessionStorage.setItem('sl-app', '1');
 } catch (e) {}
 location.replace(location.origin + ${jsonEncode(target)});
 ''';
@@ -129,6 +134,11 @@ location.replace(location.origin + ${jsonEncode(target)});
     if (!r.isMainFrame) return NavigationDecision.navigate;
 
     final h = uri.host;
+    // Website ka "Back to app" (app mode menu) — WebView band
+    if (h.endsWith('selectionlab.in') && uri.path.startsWith('/__app/close')) {
+      if (mounted) Navigator.of(context).pop();
+      return NavigationDecision.prevent;
+    }
     // API par seedha jaana = PDF/file download → browser
     if (h.endsWith('api.selectionlab.online')) {
       _external(r.url);
