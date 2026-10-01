@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
+import 'core/widgets/update_gate.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/providers/app_config_provider.dart';
 import 'presentation/screens/auth/splash_screen.dart';
@@ -89,6 +90,9 @@ class _SelectionLabAppState extends State<SelectionLabApp> {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: _themeMode,
+        // Update check poore app ke upar — purana build ho to "Please update"
+        builder: (context, child) =>
+            UpdateGate(child: child ?? const SizedBox.shrink()),
         home: SplashScreen(onToggleTheme: toggleTheme),
       ),
     );
