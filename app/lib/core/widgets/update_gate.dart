@@ -2,14 +2,15 @@
 //
 // App update check — poore app ke upar (MaterialApp.builder me lagta hai).
 //
-// Backend /app-config ke "app_update" se (Railway env vars):
-//   MIN_APP_BUILD     — isse purana build chal hi nahi sakta: poori screen par
-//                       "Please update" (band nahi hota). Security badlav
-//                       (jaise paid content ka naya check) deploy karne se
-//                       pehle isse purane app band karte hain.
-//   LATEST_APP_BUILD  — isse purana ho to neeche chhota "Update available"
-//                       banner, "Later" se band ho jata hai (is session ke liye).
-//   APP_UPDATE_MESSAGE, APP_STORE_URL — optional.
+// Backend /app-config ke "app_update" se — admin panel → App Content →
+// "App Update (Android)" section me set hota hai:
+//   min_build    — isse purana build chal hi nahi sakta: poori screen par
+//                  "Please update" (band nahi hota). Security badlav (jaise
+//                  paid content ka naya check) deploy karne se pehle isse
+//                  purane app band karte hain.
+//   latest_build — isse purana ho to neeche chhota "Update available"
+//                  banner, "Later" se band ho jata hai (is session ke liye).
+//   message, store_url — optional.
 // Build number = pubspec.yaml ke version ka "+" ke baad wala hissa.
 //
 // Config na mile (offline) to kuch nahi rokte — app normal chalta hai.
