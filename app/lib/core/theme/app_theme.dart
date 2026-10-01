@@ -5,15 +5,16 @@
 // - Navy main colour (buttons, links); gold sirf accent (offers, badges)
 // - Font: Inter; Hindi ke liye Noto Sans Devanagari (fallback)
 //
-// AppColors purane screens ke liye waisa hi hai — screen-by-screen redesign
-// me un screens se hatega, phir ise hata denge.
+// AppColors purane screens ke liye hai (video/PDF viewer, email login).
+// primary ab orange nahi, brand gold — taaki bache hue screens bhi naye
+// rangon se mel khayein. Inhe dheere-dheere Brand/DT par le jayenge.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  static const primary = Color(0xFFFF6B00);
-  static const primaryDark = Color(0xFFE55A00);
+  static const primary = Color(0xFFFFAB00); // brand gold (pehle orange FF6B00)
+  static const primaryDark = Color(0xFFE09600);
   static const background = Color(0xFF0A0A0A);
   static const surface = Color(0xFF1A1A1A);
   static const card = Color(0xFF242424);

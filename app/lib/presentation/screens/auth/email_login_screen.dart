@@ -1,12 +1,18 @@
+// lib/presentation/screens/auth/email_login_screen.dart
+//
+// Phone + password LOGIN (sirf login — naye user Google/OTP se aate hain).
+// Play Store reviewers isi se test credentials se login karte hain.
+//
+// Redesign (Sep 2026): theme ke rang (navy button, clean inputs). Logic same.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import '../../../core/theme/app_theme.dart';
+
+import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../home/home_screen.dart';
 
-/// Phone + password LOGIN screen (login only — new users sign up with Google).
-/// Needed so Play Store reviewers can log in with test credentials.
 class EmailLoginScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
   const EmailLoginScreen({super.key, required this.onToggleTheme});
@@ -17,7 +23,6 @@ class EmailLoginScreen extends StatefulWidget {
 
 class _EmailLoginScreenState extends State<EmailLoginScreen> {
   bool _obscure = true;
-
   final _phoneCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
 
@@ -63,17 +68,14 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final t = dtOf(context);
     final auth = context.watch<AuthProvider>();
-    final bg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFFFF8EC);
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: t.bg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme:
-            IconThemeData(color: isDark ? Colors.white : Colors.black87),
+        shape: const Border(),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -82,112 +84,77 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: Image.asset('assets/images/logo.png',
-                    width: 84, height: 84),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Image.asset('assets/images/logo.png',
+                      width: 76, height: 76),
+                ),
               ),
               const SizedBox(height: 20),
-              Text('Welcome Back',
+              Text('Welcome back',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? Colors.white : Colors.black87)),
+                      fontSize: 23, fontWeight: FontWeight.w800, color: t.text)),
               const SizedBox(height: 6),
               Text('Log in to continue your preparation',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? Colors.white54 : Colors.black45)),
+                  style: TextStyle(fontSize: 14, color: t.muted)),
               const SizedBox(height: 28),
-
-              _field(isDark,
-                  controller: _phoneCtrl,
-                  hint: 'Phone Number',
-                  icon: Icons.phone_outlined,
-                  keyboardType: TextInputType.phone,
-                  maxLength: 10),
+              TextField(
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                maxLength: 10,
+                style: TextStyle(color: t.text, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: 'Phone number',
+                  prefixIcon:
+                      Icon(Icons.phone_outlined, size: 20, color: t.muted),
+                ),
+              ),
               const SizedBox(height: 14),
-
-              _field(isDark,
-                  controller: _passCtrl,
-                  hint: 'Password',
-                  icon: Icons.lock_outline_rounded,
-                  obscure: _obscure,
-                  suffix: IconButton(
+              TextField(
+                controller: _passCtrl,
+                obscureText: _obscure,
+                style: TextStyle(color: t.text, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  hintText: 'Password',
+                  prefixIcon:
+                      Icon(Icons.lock_outline_rounded, size: 20, color: t.muted),
+                  suffixIcon: IconButton(
                     icon: Icon(
                         _obscure
                             ? Icons.visibility_off_rounded
                             : Icons.visibility_rounded,
                         size: 20,
-                        color: isDark ? Colors.white38 : Colors.black38),
+                        color: t.muted),
                     onPressed: () => setState(() => _obscure = !_obscure),
-                  )),
-
-              const SizedBox(height: 24),
-
-              SizedBox(
-                height: 52,
-                child: ElevatedButton(
-                  onPressed: auth.isLoading ? null : _login,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: const Color(0xFF1A1A1A),
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
                   ),
-                  child: auth.isLoading
-                      ? const SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2.4, color: Color(0xFF1A1A1A)))
-                      : const Text('Log In',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w800)),
                 ),
               ),
-
+              const SizedBox(height: 24),
+              PrimaryButton('Log in',
+                  onTap: _login, loading: auth.isLoading, expanded: true),
               const SizedBox(height: 20),
-
-              // New users sign up with Google (on the previous screen)
-              Container(
+              AppCard(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? Colors.white.withOpacity(0.05)
-                      : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                      color: isDark
-                          ? Colors.white12
-                          : Colors.black.withOpacity(0.08)),
-                ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded,
-                        size: 18,
-                        color: isDark ? Colors.white54 : Colors.black45),
+                    Icon(Icons.info_outline_rounded, size: 18, color: t.muted),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: RichText(
-                        text: TextSpan(
-                          style: TextStyle(
-                              fontSize: 13,
-                              color:
-                                  isDark ? Colors.white70 : Colors.black54),
-                          children: [
-                            const TextSpan(text: 'New user? Go back and '),
-                            TextSpan(
-                              text: 'Sign up with Google',
+                      child: Text.rich(
+                        TextSpan(children: [
+                          const TextSpan(text: 'New user? Go back and '),
+                          TextSpan(
+                              text: 'sign up with Google or Mobile OTP',
                               style: TextStyle(
                                   fontWeight: FontWeight.w800,
-                                  color: AppColors.primary),
-                            ),
-                            const TextSpan(text: '.'),
-                          ],
-                        ),
+                                  color: t.primary)),
+                          const TextSpan(text: '.'),
+                        ]),
+                        style: TextStyle(fontSize: 13, color: t.text2),
                       ),
                     ),
                   ],
@@ -195,46 +162,6 @@ class _EmailLoginScreenState extends State<EmailLoginScreen> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _field(bool isDark,
-      {required TextEditingController controller,
-      required String hint,
-      required IconData icon,
-      bool obscure = false,
-      TextInputType? keyboardType,
-      int? maxLength,
-      Widget? suffix}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withOpacity(0.06) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-            color: isDark ? Colors.white24 : Colors.black.withOpacity(0.12)),
-      ),
-      child: TextField(
-        controller: controller,
-        obscureText: obscure,
-        keyboardType: keyboardType,
-        maxLength: maxLength,
-        style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.w600),
-        decoration: InputDecoration(
-          counterText: '',
-          prefixIcon: Icon(icon,
-              size: 20, color: isDark ? Colors.white38 : Colors.black38),
-          suffixIcon: suffix,
-          hintText: hint,
-          hintStyle: TextStyle(
-              color: isDark ? Colors.white38 : Colors.black38,
-              fontWeight: FontWeight.w500),
-          border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
         ),
       ),
     );
