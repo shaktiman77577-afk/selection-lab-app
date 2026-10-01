@@ -187,8 +187,10 @@ class _DashboardTabState extends State<DashboardTab> {
     final uid = _uid;
     final uq = uid != null ? '?user_id=$uid' : '';
     final res = await Future.wait([
-      _get('/courses/'),
-      _get('/banners/'),
+      // platform=app: admin ka "Website only" wala course app me na aaye
+      _get('/courses/?platform=app'),
+      // sirf home hero wale banners (baaki pages ke banners nahi)
+      _get('/banners/?placement=hero'),
       _get('/live/classes$uq'),
       _get('/coupons/public'),
       _get('/mock-tests/series$uq'),
@@ -218,8 +220,6 @@ class _DashboardTabState extends State<DashboardTab> {
           m['thumbnail'] ??
           '')
       .toString();
-  bool _hasMobileImage(Map m) =>
-      '${m['thumbnail_url_mobile'] ?? m['image_url_mobile'] ?? ''}'.isNotEmpty;
 
   void _push(Widget w) =>
       Navigator.push(context, MaterialPageRoute(builder: (_) => w));
@@ -454,34 +454,49 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   // ── OFFERS: admin image slides + banners + featured posters ──
+  // Har slide ke paas desktop (16:9) aur shayad mobile (square) poster hota
+  // hai. Zyadatar slides ke paas mobile poster ho to carousel square, warna
+  // 16:9 — aur har slide wahi poster dikhati hai jo dabbe me poora fit ho.
+  // (Pehle ek bhi square poster hone par sab square ho jata tha, aur 16:9
+  // wale beech me chhote, blur ke saath dikhte the.)
   Widget _offersCarousel(DT t) {
     final cfg = context.watch<AppConfigProvider>();
-    final slides = <Widget>[];
-    var square = false;
+    final items = <(String, String, VoidCallback?)>[]; // wide, square, tap
 
     for (final sd in cfg.heroSlides) {
       if ((sd['type'] ?? 'content').toString() != 'image') continue;
       final img = (sd['image_url'] ?? '').toString();
       if (img.isEmpty) continue;
       final action = (sd['primary_action'] ?? '').toString();
-      slides.add(_poster(img, action.isEmpty ? null : _heroAction(action)));
+      items.add((img, '', action.isEmpty ? null : _heroAction(action)));
     }
     for (final b in _banners) {
-      final img = _img(b);
-      if (img.isEmpty) continue;
-      if (_hasMobileImage(b)) square = true;
+      final wide = '${b['image_url'] ?? b['banner_url'] ?? b['image'] ?? ''}';
+      final sq = '${b['image_url_mobile'] ?? ''}';
+      if (wide.isEmpty && sq.isEmpty) continue;
       final link = (b['link_url'] ?? b['link'] ?? b['url'] ?? '').toString();
-      slides.add(_poster(img, link.isEmpty ? null : () => _open(link)));
+      items.add((wide, sq, link.isEmpty ? null : () => _open(link)));
     }
     for (final c in _courses) {
       if (c['is_featured'] != true) continue;
-      final img = _img(c);
-      if (img.isEmpty) continue;
-      if (_hasMobileImage(c)) square = true;
-      slides.add(_poster(img, () => _openCourse(c)));
+      final wide = '${c['thumbnail_url'] ?? ''}';
+      final sq = '${c['thumbnail_url_mobile'] ?? ''}';
+      if (wide.isEmpty && sq.isEmpty) continue;
+      items.add((wide, sq, () => _openCourse(c)));
     }
-    _heroCount = slides.length;
-    if (slides.isEmpty) return const SizedBox.shrink();
+    _heroCount = items.length;
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    final squareCount = items.where((i) => i.$2.isNotEmpty).length;
+    final square = squareCount * 2 > items.length;
+    final slides = [
+      for (final i in items)
+        _poster(
+            square
+                ? (i.$2.isNotEmpty ? i.$2 : i.$1)
+                : (i.$1.isNotEmpty ? i.$1 : i.$2),
+            i.$3),
+    ];
 
     final w = MediaQuery.of(context).size.width - 32;
     return Column(

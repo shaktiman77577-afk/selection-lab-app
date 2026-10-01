@@ -58,7 +58,7 @@ class _CourseListScreenState extends State<CourseListScreen> {
       final res = await Future.wait([
         http
             .get(Uri.parse(
-                '${AppConstants.apiUrl}/courses?course_type=${Uri.encodeComponent(widget.courseType)}'))
+                '${AppConstants.apiUrl}/courses?platform=app&course_type=${Uri.encodeComponent(widget.courseType)}'))
             .timeout(const Duration(seconds: 12)),
         if (uid != null)
           http
