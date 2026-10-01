@@ -103,6 +103,25 @@ class AuthProvider extends ChangeNotifier {
       _googleEmail = googleUser.email;
       _googleDisplayName = googleUser.displayName;
 
+      // SECURITY: backend ab Google login tabhi maanta hai jab Firebase ka ID
+      // token saath ho (usse verify hota hai ki email sach me isi insaan ka
+      // hai — pehle koi bhi sirf email bhej kar kisi ka account le sakta tha).
+      // Google credential se Firebase me sign-in karke token lete hain.
+      String? firebaseIdToken;
+      try {
+        final ga = await googleUser.authentication;
+        if (ga.idToken != null) {
+          final cred = fb.GoogleAuthProvider.credential(
+            idToken: ga.idToken,
+            accessToken: ga.accessToken,
+          );
+          final r = await fb.FirebaseAuth.instance.signInWithCredential(cred);
+          firebaseIdToken = await r.user?.getIdToken();
+        }
+      } catch (e) {
+        _syncDebug = 'FIREBASE TOKEN: $e';
+      }
+
       // Sync with backend to get integer user id (for quiz/mock/courses linking)
       int? backendId;
       Map<String, dynamic> backendUser = {};
@@ -115,9 +134,24 @@ class AuthProvider extends ChangeNotifier {
             'email': googleUser.email,
             'name': googleUser.displayName,
             'profile_pic': googleUser.photoUrl,
+            'id_token': firebaseIdToken,
           }),
         ).timeout(const Duration(seconds: 15));
         _syncDebug = 'STATUS ${syncRes.statusCode}';
+        if (syncRes.statusCode != 200) {
+          // Verify fail (jaise purana token) — aadha login mat chhodo
+          String msg = 'Google sign-in failed. Please try again.';
+          try {
+            msg = (jsonDecode(syncRes.body)['detail'] ?? msg).toString();
+          } catch (_) {}
+          try {
+            await _googleSignIn.signOut();
+          } catch (_) {}
+          _isLoading = false;
+          _error = msg;
+          notifyListeners();
+          return 'error';
+        }
         if (syncRes.statusCode == 200) {
           final data = jsonDecode(syncRes.body);
           backendUser = (data['user'] as Map<String, dynamic>?) ?? {};
