@@ -7,6 +7,7 @@
 //   Pehle app har video/PDF khol deta tha.
 // - Bundle course me "Included in this bundle" — website jaisa.
 // - Nakli "4.8 rating" hata di — backend deta hi nahi.
+// - Purchase band (admin switch) ho to price/Buy/coupon nahi, sirf lock.
 
 import 'dart:convert';
 
@@ -16,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/shop.dart';
 import '../../../core/utils/share_helper.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -143,6 +145,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _buyCourse() async {
+    if (!context.shopOnRead) return; // purchase band hai
     if (_uid == null) {
       _snack('Please log out and log in again to purchase.');
       return;
@@ -195,7 +198,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       type: 'course',
       id: course['id'],
       title: (course['title'] ?? 'Course').toString(),
-      subtitle: _isFree ? 'Free course' : 'Only ₹${_price.toInt()}',
+      // Purchase band ho to share me daam nahi
+      subtitle: _isFree
+          ? 'Free course'
+          : (context.shopOnRead ? 'Only ₹${_price.toInt()}' : ''),
     );
   }
 
@@ -203,7 +209,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
     HapticFeedback.lightImpact();
     // Paid course: bina kharide sirf free preview khulta hai
     if ((!_owned && item['is_free_preview'] != true) || item['locked'] == true) {
-      _snack('Buy this course to unlock all lessons.');
+      _snack(context.shopOnRead
+          ? 'Buy this course to unlock all lessons.'
+          : kNotInAppMsg);
       return;
     }
     final type = item['content_type'];
@@ -397,6 +405,41 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   Widget _bottomBar(DT t) {
+    // Purchase band: khareeda nahi to price/Buy ki jagah sirf lock
+    if (!_owned && !context.shopOn) {
+      return Container(
+        decoration: BoxDecoration(
+          color: t.card,
+          border: Border(top: BorderSide(color: t.line)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: t.chip,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.lock_rounded, size: 17, color: t.muted),
+                  const SizedBox(width: 8),
+                  Text('Not available in the app yet',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: t.muted)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     final off = (!_isFree && _orig > _price)
         ? ((1 - _price / _orig) * 100).round()
         : 0;
@@ -556,7 +599,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
             ),
           const SizedBox(height: 12),
         ],
-        if (!_owned)
+        if (!_owned && context.shopOn)
           AppCard(
             borderColor: kDGold.withOpacity(0.5),
             child: Row(
@@ -573,7 +616,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
               ],
             ),
           ),
-        if (!_isFree && course['validity_days'] != null) ...[
+        if (!_isFree && course['validity_days'] != null && (_owned || context.shopOn)) ...[
           const SizedBox(height: 12),
           Row(
             children: [
@@ -604,7 +647,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
           Text(
               _owned
                   ? 'Everything below is unlocked for you.'
-                  : 'Buy this bundle to unlock everything below.',
+                  : context.shopOn
+                      ? 'Buy this bundle to unlock everything below.'
+                      : 'These items are not available in the app yet.',
               style: TextStyle(fontSize: 13, color: t.muted)),
           const SizedBox(height: 12),
           for (final b in _bundle)
