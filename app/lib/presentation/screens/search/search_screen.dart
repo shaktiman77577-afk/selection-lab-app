@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/shop.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../courses/course_detail_screen.dart';
@@ -43,6 +44,8 @@ class _SearchScreenState extends State<SearchScreen> {
   String? _error;
 
   Timer? _debounce;
+  // build me set hota hai — itemBuilder ke andar watch nahi karna padta
+  bool _shop = false;
   // Purana jawab naye ke baad aa jaye to galat result na dikhe
   int _reqId = 0;
 
@@ -197,6 +200,7 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   Widget build(BuildContext context) {
     final t = dtOf(context);
+    _shop = context.shopOn;
     final tabs = ['all', ..._kindTabs];
 
     return Scaffold(
@@ -364,7 +368,7 @@ class _SearchScreenState extends State<SearchScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 11.5, color: t.muted)),
-                if (price != null) ...[
+                if (price != null && (free || _shop)) ...[
                   const SizedBox(height: 4),
                   Row(children: [
                     Text(free ? 'FREE' : '₹${money(price)}',

@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 
 import '../../presentation/screens/descriptive/descriptive_theme.dart';
+import '../shop.dart';
 
 DT dtOf(BuildContext context) =>
     DT(Theme.of(context).brightness == Brightness.dark);
@@ -210,6 +211,7 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = dtOf(context);
+    final shop = context.shopOn;
     final free = price <= 0;
     final off = (!free && original > price)
         ? ((1 - price / original) * 100).round()
@@ -280,6 +282,17 @@ class ProductCard extends StatelessWidget {
                                 fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 color: kDGreen))
+                      else if (!shop)
+                        // Purchase band: price nahi, sirf lock
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.lock_rounded, size: 15, color: t.muted),
+                          const SizedBox(width: 5),
+                          Text('Locked',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: t.muted)),
+                        ])
                       else ...[
                         Text('₹${price.toInt()}',
                             style: TextStyle(
