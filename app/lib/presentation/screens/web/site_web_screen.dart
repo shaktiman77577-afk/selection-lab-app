@@ -11,6 +11,9 @@
 // Android WebView robots.txt ko back-history me rakh leta hai — wahan wapas
 // pahunchne par screen band hoti hai (_onStarted), page nahi dikhta.
 //
+// Purchase band (admin switch) ho to price / Buy buttons chhup jate hain
+// (_applyShopOff).
+//
 // Login token bhi "sl_token" me jata hai — website har API call me bhejti hai.
 //
 // App mode: sessionStorage "sl-app" bhi set hota hai — website us tab me
@@ -30,6 +33,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/shop.dart';
 import '../../../data/providers/auth_provider.dart';
 
 class SiteWebScreen extends StatefulWidget {
@@ -114,8 +118,62 @@ class _SiteWebScreenState extends State<SiteWebScreen> {
     }
   }
 
+  /// Purchase band hai to har naye page par price / Buy chhupao. Website me
+  /// koi badlav nahi — ye sirf app ke WebView ke andar chalta hai, aur sirf
+  /// attributes + CSS lagata hai (React ke text ko chhedta nahi).
+  void _applyShopOff() {
+    if (!mounted || context.shopOnRead) return;
+    _c.runJavaScript(_shopOffJs).catchError((_) {});
+  }
+
+  static const String _shopOffJs = r'''
+(function(){
+  if (window.__slShopOff) return;
+  window.__slShopOff = 1;
+  try {
+    var st = document.createElement('style');
+    st.textContent =
+      '[data-sl-hide]{display:none!important}' +
+      '[data-sl-lock]{pointer-events:none!important;font-size:0!important;line-height:0!important}' +
+      '[data-sl-lock]::after{content:"🔒 Locked";font-size:12.5px;font-weight:800;line-height:1.3}';
+    document.head.appendChild(st);
+  } catch (e) {}
+  function scan() {
+    try {
+      var w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
+      var n;
+      while ((n = w.nextNode())) {
+        var t = n.nodeValue || '';
+        if (t.indexOf('₹') > -1 || /after you buy/i.test(t)) {
+          var p = n.parentElement;
+          if (p && !p.hasAttribute('data-sl-hide')) p.setAttribute('data-sl-hide', '1');
+        }
+      }
+      var bs = document.querySelectorAll('button');
+      for (var i = 0; i < bs.length; i++) {
+        var b = bs[i];
+        if (b.hasAttribute('data-sl-lock')) continue;
+        var tx = (b.textContent || '').trim().replace(/^[^a-z]+/i, '');
+        if (/^(unlock|buy|enroll|pay securely)/i.test(tx)) b.setAttribute('data-sl-lock', '1');
+      }
+    } catch (e) {}
+  }
+  var timer = null;
+  function sched() {
+    if (timer) return;
+    timer = setTimeout(function () { timer = null; scan(); }, 120);
+  }
+  scan();
+  new MutationObserver(sched).observe(document.body, { childList: true, subtree: true, characterData: true });
+})();
+''';
+
   Future<void> _onFinished(String url) async {
-    if (_booted) return;
+    if (_booted) {
+      // Login wala pehla page nikal gaya — ab asli pages: shop band to chhupao
+      _applyShopOff();
+      return;
+    }
     _booted = true;
     final sep = widget.path.contains('?') ? '&' : '?';
     final target = '${widget.path}${sep}app=1';
