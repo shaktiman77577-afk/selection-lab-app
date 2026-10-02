@@ -3,6 +3,7 @@
 // Redesign (Sep 2026): clean cards (DT tokens + ui.dart). Logic waisa hi:
 // live ho aur access ho to Join, enrolled ho to "link 10 min pehle",
 // warna Enroll → checkout (live par coupon nahi).
+// Purchase band (admin switch) ho to Enroll/price nahi, sirf lock.
 
 import 'dart:convert';
 
@@ -13,6 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/shop.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../checkout/checkout_screen.dart';
@@ -98,6 +100,10 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
   }
 
   Future<void> _buy(Map<String, dynamic> item, String kind) async {
+    if (!context.shopOnRead) {
+      _snack(kNotInAppMsg); // purchase band hai
+      return;
+    }
     if (_uid == null) {
       _snack('Please log in to continue.');
       return;
@@ -281,6 +287,20 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
                 color: kDGreen, fontWeight: FontWeight.w700, fontSize: 13)),
       );
     }
+    if (!context.shopOn) {
+      // Purchase band: Enroll/price nahi
+      return Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: t.chip,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text('🔒 Not available in the app yet',
+            style: TextStyle(
+                color: t.muted, fontWeight: FontWeight.w700, fontSize: 13)),
+      );
+    }
     return ElevatedButton(
       onPressed: () => _buy(c, 'class'),
       child: Text('Enroll · ₹${_num(c['price']).toInt()}'),
@@ -335,6 +355,12 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
                 const SizedBox(height: 12),
                 if (enrolled)
                   const Tag('ENROLLED', color: kDGreen)
+                else if (!context.shopOn)
+                  Text('🔒 Not available in the app yet',
+                      style: TextStyle(
+                          color: t.muted,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13))
                 else
                   Row(
                     children: [

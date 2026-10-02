@@ -6,6 +6,7 @@
 // - Diya hua test: score + ✓/✗, "Solution" aur "Reattempt" buttons.
 //   Test par tap = seedha solution (backend `my_attempt` bhejta hai).
 // - Series ka apna Telegram group ho to uska card.
+// - Purchase band (admin switch) ho to price/Buy nahi, sirf lock.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +16,7 @@ import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
 import 'mock_instructions_screen.dart';
 import 'mock_review_screen.dart';
+import '../../../core/shop.dart';
 import '../../../core/utils/share_helper.dart';
 import '../checkout/checkout_screen.dart';
 
@@ -87,6 +89,10 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _buy() async {
+    if (!context.shopOnRead) {
+      _snack(kNotInAppMsg); // purchase band hai
+      return;
+    }
     if (_uid == null) {
       _snack('Please log in to continue.');
       return;
@@ -224,7 +230,7 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                       else
                         ..._tests.asMap().entries.map(
                             (e) => _testRow(e.key + 1, e.value, t)),
-                      if (!_purchased && _price > 0) ...[
+                      if (!_purchased && _price > 0 && context.shopOn) ...[
                         const SizedBox(height: 20),
                         Center(
                           child: GoldButton(
@@ -285,6 +291,20 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
   Widget _heroFooter(DT t) {
     if (_purchased) {
       return _pill('✓ Full access');
+    }
+    if (_price > 0 && !context.shopOn) {
+      // Purchase band: price/Buy nahi
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10)),
+        child: const Text('🔒 Locked in the app',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13)),
+      );
     }
     if (_price > 0) {
       return Row(
