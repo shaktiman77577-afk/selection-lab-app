@@ -18,6 +18,7 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/shop.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/app_config_provider.dart';
@@ -347,7 +348,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
                     // 2. Offers
                     _offersCarousel(t),
-                    if (_coupons.isNotEmpty) ...[
+                    if (_coupons.isNotEmpty && context.shopOn) ...[
                       const SizedBox(height: 12),
                       _couponStrip(t),
                     ],
@@ -899,7 +900,17 @@ class _DashboardTabState extends State<DashboardTab> {
                   const SizedBox(height: 6),
                   owned
                       ? const Tag('ENROLLED', color: kDGreen)
-                      : Text(price <= 0 ? 'FREE' : '₹${price.toInt()}',
+                      : (price > 0 && !context.shopOn)
+                          ? Row(mainAxisSize: MainAxisSize.min, children: [
+                              Icon(Icons.lock_rounded, size: 14, color: t.muted),
+                              const SizedBox(width: 4),
+                              Text('Locked',
+                                  style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: t.muted)),
+                            ])
+                          : Text(price <= 0 ? 'FREE' : '₹${price.toInt()}',
                           style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w800,
