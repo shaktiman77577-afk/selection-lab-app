@@ -1,11 +1,19 @@
+// lib/presentation/screens/notification/notifications_screen.dart
+//
+// Redesign (Sep 2026): clean look. Aur ek sudhaar: tap karne par notification
+// "read" mark hota hai (POST /notifications/{id}/read). Pehle app ye call
+// karta hi nahi tha, isliye har notification hamesha unread dikhta tha.
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
-import '../../../core/theme/app_theme.dart';
-import '../../../data/providers/auth_provider.dart';
+
+import '../../../core/constants/app_constants.dart';
+import '../../../core/widgets/ui.dart';
+import '../descriptive/descriptive_theme.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,161 +23,175 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<Map<String, dynamic>> _notifications = [];
+  List<Map<String, dynamic>> _items = [];
   bool _loading = true;
+  String? _error;
+  String? _token;
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _load();
   }
 
-  Future<void> _loadNotifications() async {
+  Map<String, String> get _headers =>
+      _token != null ? {'Authorization': 'Bearer $_token'} : {};
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = _items.isEmpty;
+      _error = null;
+    });
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('auth_token') ?? prefs.getString('token');
-      final res = await http.get(
-        Uri.parse('https://api.selectionlab.online/api/notifications/'),
-        headers: token != null ? {'Authorization': 'Bearer $token'} : {},
-      ).timeout(const Duration(seconds: 10));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+      _token = prefs.getString(AppConstants.tokenKey) ?? prefs.getString('token');
+      final res = await http
+          .get(Uri.parse('${AppConstants.apiUrl}/notifications/'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 12));
+      if (!mounted) return;
+      if (res.statusCode != 200) {
         setState(() {
-          _notifications = List<Map<String, dynamic>>.from(data['notifications'] ?? []);
+          _error = 'Could not load notifications.';
           _loading = false;
         });
-      } else {
-        setState(() => _loading = false);
+        return;
       }
+      final data = jsonDecode(res.body);
+      final l = data is Map ? data['notifications'] : null;
+      setState(() {
+        _items = l is List
+            ? l.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+            : [];
+        _loading = false;
+      });
     } catch (_) {
-      setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load notifications. Check your internet.';
+        _loading = false;
+      });
     }
   }
 
-  IconData _iconFor(String type) {
-    switch (type) {
-      case 'offer': return Icons.local_offer_rounded;
-      case 'payment': return Icons.check_circle_rounded;
-      case 'course': return Icons.school_rounded;
-      default: return Icons.notifications_rounded;
-    }
-  }
-
-  Color _colorFor(String type) {
-    switch (type) {
-      case 'offer': return Colors.orange;
-      case 'payment': return Colors.green;
-      case 'course': return AppColors.primary;
-      default: return Colors.blue;
-    }
-  }
-
-  String _timeAgo(String? dateStr) {
-    if (dateStr == null) return '';
+  Future<void> _markRead(Map<String, dynamic> n) async {
+    if (n['is_read'] == true) return;
+    HapticFeedback.selectionClick();
+    setState(() => n['is_read'] = true);
     try {
-      final date = DateTime.parse(dateStr).toLocal();
-      final diff = DateTime.now().difference(date);
-      if (diff.inDays > 0) return '${diff.inDays}d ago';
-      if (diff.inHours > 0) return '${diff.inHours}h ago';
-      if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
-      return 'Just now';
-    } catch (_) {
-      return '';
+      await http
+          .post(Uri.parse('${AppConstants.apiUrl}/notifications/${n['id']}/read'),
+              headers: _headers)
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
+  }
+
+  (IconData, Color) _style(String type) {
+    switch (type) {
+      case 'offer':
+        return (Icons.local_offer_rounded, const Color(0xFFB47F00));
+      case 'payment':
+        return (Icons.check_circle_rounded, kDGreen);
+      case 'course':
+        return (Icons.school_rounded, const Color(0xFFD9822B));
+      default:
+        return (Icons.notifications_rounded, const Color(0xFF2C6FD1));
     }
+  }
+
+  String _timeAgo(dynamic s) {
+    final d = DateTime.tryParse('${s ?? ''}');
+    if (d == null) return '';
+    final diff = DateTime.now().difference(d.toLocal());
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF5F6FA);
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final t = dtOf(context);
+    final state = ListStateView(
+      loading: _loading,
+      error: _error,
+      empty: _items.isEmpty,
+      emptyText: "You're all caught up!\nNew updates will appear here.",
+      emptyIcon: Icons.notifications_none_rounded,
+      onRetry: _load,
+    );
 
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        title: Text('Notifications', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _notifications.isEmpty
-              ? _emptyState(isDark)
-              : RefreshIndicator(
-                  onRefresh: _loadNotifications,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _notifications.length,
-                    itemBuilder: (context, i) {
-                      final n = _notifications[i];
-                      final type = (n['type'] ?? 'general').toString();
-                      final isRead = n['is_read'] == true;
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(14),
-                          border: isRead ? null : Border.all(color: AppColors.primary.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(color: _colorFor(type).withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
-                              child: Icon(_iconFor(type), color: _colorFor(type), size: 22),
-                            ),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(n['title'] ?? '', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.white : Colors.black87)),
-                                      ),
-                                      if (!isRead)
-                                        Container(width: 8, height: 8, decoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle)),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(n['body'] ?? '', style: TextStyle(fontSize: 13, height: 1.4, color: isDark ? Colors.white70 : Colors.black54)),
-                                  const SizedBox(height: 6),
-                                  Text(_timeAgo(n['sent_at'] ?? n['created_at']), style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
+      backgroundColor: t.bg,
+      appBar: AppBar(title: const Text('Notifications')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 32),
+          children: [
+            if (state.show)
+              state
+            else
+              for (final n in _items)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _card(t, n),
                 ),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _emptyState(bool isDark) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(color: AppColors.primary.withOpacity(0.1), shape: BoxShape.circle),
-              child: Icon(Icons.notifications_none_rounded, size: 56, color: AppColors.primary),
+  Widget _card(DT t, Map<String, dynamic> n) {
+    final unread = n['is_read'] != true;
+    final (icon, color) = _style('${n['type'] ?? 'general'}');
+    return AppCard(
+      borderColor: unread ? t.primary.withOpacity(0.35) : null,
+      onTap: () => _markRead(n),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text('${n['title'] ?? ''}',
+                          style: TextStyle(
+                              fontWeight:
+                                  unread ? FontWeight.w800 : FontWeight.w600,
+                              fontSize: 14,
+                              color: t.text)),
+                    ),
+                    if (unread)
+                      Container(
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                              color: t.primary, shape: BoxShape.circle)),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text('${n['body'] ?? ''}',
+                    style: TextStyle(fontSize: 13, height: 1.45, color: t.text2)),
+                const SizedBox(height: 6),
+                Text(_timeAgo(n['sent_at'] ?? n['created_at']),
+                    style: TextStyle(fontSize: 11, color: t.muted)),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text('No notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
-            const SizedBox(height: 8),
-            Text('You are all caught up!\nNew updates will appear here.',
-                textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: isDark ? Colors.white54 : Colors.black45)),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

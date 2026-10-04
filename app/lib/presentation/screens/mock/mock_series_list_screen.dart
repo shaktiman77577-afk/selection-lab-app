@@ -1,12 +1,13 @@
 // lib/presentation/screens/mock/mock_series_list_screen.dart
 //
-// Mock test series list — website-style, app theme aware.
+// Redesign (Sep 2026): clean list — filter (All / Enrolled / Free) aur
+// ek jaise ProductCard.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/mock_api.dart';
-import '../descriptive/descriptive_theme.dart';
 import 'mock_series_detail_screen.dart';
 
 class MockSeriesListScreen extends StatefulWidget {
@@ -20,6 +21,7 @@ class _MockSeriesListScreenState extends State<MockSeriesListScreen> {
   List<Map<String, dynamic>> _series = [];
   bool _loading = true;
   String? _error;
+  int _filter = 0; // 0 All, 1 Enrolled, 2 Free
 
   @override
   void initState() {
@@ -27,14 +29,18 @@ class _MockSeriesListScreenState extends State<MockSeriesListScreen> {
     _load();
   }
 
+  int? get _uid {
+    final raw = context.read<AuthProvider>().user?['id'];
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
+  }
+
   Future<void> _load() async {
     setState(() {
-      _loading = true;
+      _loading = _series.isEmpty;
       _error = null;
     });
-    final uid = context.read<AuthProvider>().user?['id'] as int?;
     try {
-      final list = await MockApi.series(uid);
+      final list = await MockApi.series(_uid);
       if (!mounted) return;
       setState(() {
         _series = list;
@@ -43,175 +49,89 @@ class _MockSeriesListScreenState extends State<MockSeriesListScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = 'Could not load test series. Pull down to refresh.';
+        _error = 'Could not load test series. Check your internet.';
         _loading = false;
       });
     }
   }
 
-  num _num(dynamic v) => v is num ? v : num.tryParse((v ?? '').toString()) ?? 0;
+  num _num(dynamic v) => v is num ? v : num.tryParse('${v ?? ''}') ?? 0;
+  String _img(Map s) =>
+      '${s['thumbnail_url_mobile'] ?? s['thumbnail_url'] ?? ''}';
+
+  List<Map<String, dynamic>> get _shown {
+    switch (_filter) {
+      case 1:
+        return _series.where((s) => s['is_purchased'] == true).toList();
+      case 2:
+        return _series
+            .where((s) => _num(s['price']) <= 0 || _num(s['free_count']) > 0)
+            .toList();
+      default:
+        return _series;
+    }
+  }
+
+  Future<void> _open(Map<String, dynamic> s) async {
+    final id = s['id'] is int ? s['id'] as int : int.tryParse('${s['id']}');
+    if (id == null) return;
+    await Navigator.push(context,
+        MaterialPageRoute(builder: (_) => MockSeriesDetailScreen(seriesId: id)));
+    if (mounted) _load();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final t = DT(Theme.of(context).brightness == Brightness.dark);
+    final t = dtOf(context);
+    final shown = _shown;
+    final state = ListStateView(
+      loading: _loading,
+      error: _error,
+      empty: shown.isEmpty,
+      emptyText: _filter == 1
+          ? 'You have not enrolled in any test series yet.'
+          : 'Test series coming soon. Stay tuned!',
+      emptyIcon: Icons.assignment_outlined,
+      onRetry: _load,
+    );
+
     return Scaffold(
       backgroundColor: t.bg,
-      appBar: AppBar(
-        backgroundColor: t.bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: t.text),
-        title: Text('Mock Tests',
-            style: TextStyle(fontWeight: FontWeight.w800, color: t.text)),
-      ),
+      appBar: AppBar(title: const Text('Mock Tests')),
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+          padding: const EdgeInsets.only(top: 12, bottom: 32),
           children: [
-            DescriptiveHero(
-              title: 'Real Exam-Interface Mocks',
-              subtitle:
-                  'Full-length mock tests on the same TCS/SSC-pattern screen — '
-                  'palette, timer, sections, negative marking. In Hindi + English.',
+            FilterChips(
+              options: const ['All', 'Enrolled', 'Free tests'],
+              selected: _filter,
+              onChanged: (i) => setState(() => _filter = i),
             ),
-            Padding(
-              padding: const EdgeInsets.only(top: 26, bottom: 10),
-              child: Text('Test Series',
-                  style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
-            ),
-            if (_loading)
-              Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Center(
-                      child: Text('Loading test series…',
-                          style: TextStyle(color: t.muted))))
-            else if (_error != null)
-              Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Center(
-                      child: Column(children: [
-                    Text(_error!,
-                        style: const TextStyle(color: Color(0xFFC0392B))),
-                    const SizedBox(height: 10),
-                    ElevatedButton(onPressed: _load, child: const Text('Retry')),
-                  ])))
-            else if (_series.isEmpty)
-              Padding(
-                  padding: const EdgeInsets.only(top: 20),
-                  child: Text('Test series coming soon. Stay tuned!',
-                      style: TextStyle(color: t.muted, fontSize: 14)))
+            const SizedBox(height: 12),
+            if (state.show)
+              state
             else
-              ..._series.map((s) => _card(s, t)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _card(Map<String, dynamic> s, DT t) {
-    final price = _num(s['price']);
-    final purchased = s['is_purchased'] == true;
-    final free = price <= 0;
-    final testsCount = s['tests_count'] ?? 0;
-    final freeCount = _num(s['free_count']);
-
-    return GestureDetector(
-      onTap: () async {
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-              builder: (_) => MockSeriesDetailScreen(seriesId: s['id'] as int)),
-        );
-        _load();
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: t.card,
-          border: Border.all(color: t.line),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: t.shadow,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(s['title']?.toString() ?? '',
-                          style: TextStyle(
-                              fontSize: 16.5,
-                              fontWeight: FontWeight.w800,
-                              color: t.text)),
-                      if ((s['description']?.toString() ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 6),
-                        Text(s['description'].toString(),
-                            style: TextStyle(
-                                fontSize: 13, color: t.muted, height: 1.5)),
-                      ],
-                    ],
+              for (final s in shown)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: ProductCard(
+                    img: _img(s),
+                    title: '${s['title'] ?? ''}',
+                    meta: '${_num(s['tests_count']).toInt()} tests',
+                    highlight: _num(s['free_count']) > 0 && _num(s['price']) > 0
+                        ? '${_num(s['free_count']).toInt()} free tests'
+                        : null,
+                    price: _num(s['price']),
+                    original: _num(s['original_price']),
+                    owned: s['is_purchased'] == true,
+                    fallbackIcon: Icons.assignment_rounded,
+                    onTap: () => _open(s),
                   ),
                 ),
-                const SizedBox(width: 10),
-                purchased
-                    ? _badge('OWNED ✓', kDGreen)
-                    : free
-                        ? _badge('FREE', kDGreen)
-                        : _badge('₹${price.toInt()}', kDGold),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(children: [
-              Text('📝 $testsCount tests',
-                  style: TextStyle(fontSize: 12.5, color: t.text2)),
-              if (freeCount > 0 && !purchased && price > 0) ...[
-                const SizedBox(width: 14),
-                Text('🎁 ${freeCount.toInt()} free',
-                    style: const TextStyle(fontSize: 12.5, color: kDGreen)),
-              ],
-            ]),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: kDGold.withOpacity(0.12),
-                border: Border.all(color: kDGold.withOpacity(0.4)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                purchased
-                    ? 'View Tests →'
-                    : freeCount > 0
-                        ? 'Try Free Tests →'
-                        : 'View Series →',
-                style: const TextStyle(
-                    color: Color(0xFFB47F00),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13.5),
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _badge(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
-            border: Border.all(color: color.withOpacity(0.4)),
-            borderRadius: BorderRadius.circular(8)),
-        child: Text(text,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.w800, fontSize: 13)),
-      );
 }

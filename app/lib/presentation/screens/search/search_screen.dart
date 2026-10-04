@@ -1,14 +1,11 @@
 // lib/presentation/screens/search/search_screen.dart
 //
-// Website jaisa hi search — ab backend ka /api/search chalta hai.
+// Website jaisa search — backend ka /api/search (platform=app, taaki
+// website-only cheezein na dikhein). Ek hi call me saari categories.
 //
-// Pehle ye screen sirf /courses fetch karke local filter lagati thi, isliye
-// mock test, descriptive, Tier 2 aur blog kuch bhi nahi milta tha. Ab ek hi
-// call me saari categories aati hain, wahi ranking jo website par hai.
-//
-// platform=app zaroori hai: backend ka default "web" hai, aur wo visible_on
-// dekh kar rows chhaanta hai. Bina iske app users ko website-only cheezein
-// dikhne lagti hain.
+// Redesign (Sep 2026): clean look. Aur: Tier 2, blog jaise jo results app me
+// native nahi hain, wo ab app ke andar hi (WebView, auto-login) khulte hain —
+// pehle browser me jaate the jahan student logged-in nahi hota tha.
 
 import 'dart:async';
 import 'dart:convert';
@@ -20,11 +17,14 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
-import '../../../core/theme/app_theme.dart';
+import '../../../core/shop.dart';
+import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../courses/course_detail_screen.dart';
 import '../descriptive/descriptive_series_detail_screen.dart';
+import '../descriptive/descriptive_theme.dart';
 import '../mock/mock_series_detail_screen.dart';
+import '../web/site_web_screen.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -34,8 +34,6 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen> {
-  static const String _site = 'https://selectionlab.in';
-
   final TextEditingController _controller = TextEditingController();
 
   List<Map<String, dynamic>> _results = [];
@@ -43,12 +41,12 @@ class _SearchScreenState extends State<SearchScreen> {
   String _query = '';
   String _kind = 'all';
   bool _loading = false;
-  bool _opening = false;
   String? _error;
 
   Timer? _debounce;
-  // Har keystroke ka jawab aata hai, par zaroori nahi ki usi order me. Purana
-  // jawab naye ke baad aa jaye to result galat dikhega — isliye ginti rakhi hai.
+  // build me set hota hai — itemBuilder ke andar watch nahi karna padta
+  bool _shop = false;
+  // Purana jawab naye ke baad aa jaye to galat result na dikhe
   int _reqId = 0;
 
   @override
@@ -66,8 +64,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   int? get _userId {
     final raw = context.read<AuthProvider>().user?['id'];
-    if (raw is int) return raw;
-    return int.tryParse('${raw ?? ''}');
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
   }
 
   Future<void> _loadTrending() async {
@@ -76,19 +73,17 @@ class _SearchScreenState extends State<SearchScreen> {
           .get(Uri.parse('${AppConstants.apiUrl}/search/trending'))
           .timeout(const Duration(seconds: 10));
       if (res.statusCode != 200 || !mounted) return;
-      final data = jsonDecode(res.body);
-      final list = data['trending'];
+      final list = jsonDecode(res.body)['trending'];
       if (list is List) {
         setState(() {
           _trending = list
-              .map((e) => Map<String, dynamic>.from(e as Map))
-              .where((e) => (e['label'] ?? '').toString().isNotEmpty)
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e))
+              .where((e) => '${e['label'] ?? ''}'.isNotEmpty)
               .toList();
         });
       }
-    } catch (_) {
-      // Trending chips zaroori nahi hain — na aayein to screen waise hi chalti hai.
-    }
+    } catch (_) {}
   }
 
   void _onChanged(String text) {
@@ -103,32 +98,24 @@ class _SearchScreenState extends State<SearchScreen> {
       });
       return;
     }
-    // Har akshar par call nahi — student type karna band kare tab bhejte hain.
     _debounce = Timer(const Duration(milliseconds: 350), () => _search(text));
   }
 
   Future<void> _search(String text) async {
     final q = text.trim();
     if (q.isEmpty) return;
-
     final myReq = ++_reqId;
     setState(() {
       _loading = true;
       _error = null;
     });
-
     final uid = _userId;
-    final url = Uri.parse(
-      '${AppConstants.apiUrl}/search/'
-      '?q=${Uri.encodeQueryComponent(q)}'
-      '&platform=app&limit=20'
-      '${uid != null ? '&user_id=$uid' : ''}',
-    );
-
+    final url = Uri.parse('${AppConstants.apiUrl}/search/'
+        '?q=${Uri.encodeQueryComponent(q)}&platform=app&limit=20'
+        '${uid != null ? '&user_id=$uid' : ''}');
     try {
       final res = await http.get(url).timeout(const Duration(seconds: 15));
       if (!mounted || myReq != _reqId) return;
-
       if (res.statusCode != 200) {
         setState(() {
           _loading = false;
@@ -136,12 +123,10 @@ class _SearchScreenState extends State<SearchScreen> {
         });
         return;
       }
-
-      final data = jsonDecode(res.body);
-      final list = data['results'];
+      final list = jsonDecode(res.body)['results'];
       setState(() {
         _results = list is List
-            ? list.map((e) => Map<String, dynamic>.from(e as Map)).toList()
+            ? list.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
             : [];
         _kind = 'all';
         _loading = false;
@@ -155,98 +140,52 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<void> _openLink(String path) async {
-    final uri = Uri.parse(path.startsWith('http') ? path : '$_site$path');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  /// Search sirf id/title/price bhejti hai, par CourseDetailScreen ko poora row
-  /// chahiye (description, features, validity). Isliye tap par asli course
-  /// laate hain — aadha row bhej dein to detail page khaali dikhega.
-  Future<void> _openCourse(int id) async {
-    setState(() => _opening = true);
-    Map<String, dynamic>? full;
-    try {
-      final res = await http
-          .get(Uri.parse('${AppConstants.apiUrl}/courses/'))
-          .timeout(const Duration(seconds: 15));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final list = data['courses'];
-        if (list is List) {
-          for (final c in list) {
-            final m = Map<String, dynamic>.from(c as Map);
-            if ('${m['id']}' == '$id') {
-              full = m;
-              break;
-            }
-          }
-        }
-      }
-    } catch (_) {
-      // neeche fallback hai
-    }
-    if (!mounted) return;
-    setState(() => _opening = false);
-
-    if (full == null) {
-      await _openLink('/course/$id');
+  /// Website ka link: '/...' ho to app ke andar (auto-login), warna browser
+  Future<void> _openLink(String link) async {
+    if (link.startsWith('/')) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => SiteWebScreen(path: link)));
       return;
     }
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => CourseDetailScreen(course: full!)),
-    );
+    try {
+      await launchUrl(Uri.parse(link), mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
-  Future<void> _openResult(Map<String, dynamic> r) async {
+  void _openResult(Map<String, dynamic> r) {
     HapticFeedback.lightImpact();
-    final kind = (r['kind'] ?? '').toString();
-    final rawId = r['id'];
-    final id = rawId is int ? rawId : int.tryParse('${rawId ?? ''}');
+    final raw = r['id'];
+    final id = raw is int ? raw : int.tryParse('${raw ?? ''}');
+    void push(Widget w) =>
+        Navigator.push(context, MaterialPageRoute(builder: (_) => w));
 
-    switch (kind) {
+    switch ('${r['kind'] ?? ''}') {
       case 'course':
+        // CourseDetail khud poora course mangwa leta hai
         if (id != null) {
-          await _openCourse(id);
+          push(CourseDetailScreen(course: {
+            'id': id,
+            'title': r['title'],
+            'thumbnail_url': r['thumbnail_url'],
+          }));
         }
         return;
-
       case 'mock':
-        if (id != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MockSeriesDetailScreen(seriesId: id),
-            ),
-          );
-        }
+        if (id != null) push(MockSeriesDetailScreen(seriesId: id));
         return;
-
       case 'descriptive':
-        if (id != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => DescriptiveSeriesDetailScreen(seriesId: id),
-            ),
-          );
-        }
+        if (id != null) push(DescriptiveSeriesDetailScreen(seriesId: id));
         return;
-
-      // Tier 2 aur blog abhi app me nahi hain — website par bhej dete hain.
       default:
-        final link = (r['link'] ?? '').toString();
-        if (link.isNotEmpty) await _openLink(link);
+        final link = '${r['link'] ?? ''}';
+        if (link.isNotEmpty) _openLink(link);
     }
   }
 
   List<String> get _kindTabs {
     final seen = <String>[];
     for (final r in _results) {
-      final k = (r['kind_label'] ?? '').toString();
+      final k = '${r['kind_label'] ?? ''}';
       if (k.isNotEmpty && !seen.contains(k)) seen.add(k);
     }
     return seen;
@@ -256,318 +195,202 @@ class _SearchScreenState extends State<SearchScreen> {
       ? _results
       : _results.where((r) => '${r['kind_label']}' == _kind).toList();
 
+  num? _n(dynamic v) => v == null ? null : (v is num ? v : num.tryParse('$v'));
+
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF5F6FA);
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final t = dtOf(context);
+    _shop = context.shopOn;
+    final tabs = ['all', ..._kindTabs];
 
     return Scaffold(
-      backgroundColor: bg,
+      backgroundColor: t.bg,
       appBar: AppBar(
-        backgroundColor: bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        title: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: isDark ? Colors.white12 : Colors.black12),
-          ),
-          child: TextField(
-            controller: _controller,
-            autofocus: true,
-            textInputAction: TextInputAction.search,
-            onChanged: _onChanged,
-            onSubmitted: (t) {
-              _debounce?.cancel();
-              _search(t);
-            },
-            style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87, fontSize: 15),
-            decoration: InputDecoration(
-              hintText: 'Courses, mock tests, descriptive...',
-              hintStyle: TextStyle(
-                  color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
-              prefixIcon: Icon(Icons.search_rounded,
-                  color: isDark ? Colors.white38 : Colors.black38, size: 22),
-              suffixIcon: _query.isNotEmpty
-                  ? IconButton(
-                      icon: Icon(Icons.close_rounded,
-                          color: isDark ? Colors.white38 : Colors.black38,
-                          size: 20),
-                      onPressed: () {
-                        _controller.clear();
-                        _onChanged('');
-                      },
-                    )
-                  : null,
-              border: InputBorder.none,
-              contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: SizedBox(
+            height: 44,
+            child: TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.search,
+              onChanged: _onChanged,
+              onSubmitted: (s) {
+                _debounce?.cancel();
+                _search(s);
+              },
+              style: TextStyle(color: t.text, fontSize: 15),
+              decoration: InputDecoration(
+                hintText: 'Courses, mock tests, descriptive…',
+                contentPadding: EdgeInsets.zero,
+                fillColor: t.bg,
+                prefixIcon: Icon(Icons.search_rounded, color: t.muted, size: 22),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: Icon(Icons.close_rounded, color: t.muted, size: 20),
+                        onPressed: () {
+                          _controller.clear();
+                          _onChanged('');
+                        },
+                      ),
+              ),
             ),
           ),
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          Column(
-            children: [
-              if (_query.isEmpty && _trending.isNotEmpty)
-                SizedBox(
-                  height: 44,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: _trending.length,
-                    itemBuilder: (context, i) {
-                      final t = _trending[i];
-                      final label = (t['label'] ?? '').toString();
-                      final q = (t['query'] ?? label).toString();
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ActionChip(
-                          label: Text(label),
-                          labelStyle: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13),
-                          backgroundColor: AppColors.primary.withOpacity(0.1),
-                          side: BorderSide(
-                              color: AppColors.primary.withOpacity(0.3)),
-                          onPressed: () {
-                            final link = (t['link'] ?? '').toString();
-                            if (link.isNotEmpty) {
-                              _openLink(link);
-                              return;
-                            }
-                            _controller.text = q;
-                            _debounce?.cancel();
-                            setState(() => _query = q);
-                            _search(q);
-                          },
-                        ),
-                      );
-                    },
-                  ),
+          if (_query.isEmpty && _trending.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const SectionHeader('Trending'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tr in _trending)
+                      ActionChip(
+                        avatar: Icon(Icons.trending_up_rounded,
+                            size: 16, color: t.primary),
+                        label: Text('${tr['label']}'),
+                        onPressed: () {
+                          final link = '${tr['link'] ?? ''}';
+                          if (link.isNotEmpty) {
+                            _openLink(link);
+                            return;
+                          }
+                          final q = '${tr['query'] ?? tr['label']}';
+                          _controller.text = q;
+                          _debounce?.cancel();
+                          setState(() => _query = q);
+                          _search(q);
+                        },
+                      ),
+                  ],
                 ),
-
-              // Category filter — tabhi jab ek se zyada tarah ke result hon
-              if (_query.isNotEmpty && _kindTabs.length > 1)
-                SizedBox(
-                  height: 44,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: ['all', ..._kindTabs].map((k) {
-                      final on = _kind == k;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: ChoiceChip(
-                          label: Text(k == 'all' ? 'All' : k),
-                          selected: on,
-                          onSelected: (_) => setState(() => _kind = k),
-                          labelStyle: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: on
-                                ? Colors.black
-                                : (isDark ? Colors.white70 : Colors.black54),
-                          ),
-                          selectedColor: AppColors.primary,
-                          backgroundColor: cardBg,
-                          side: BorderSide(
-                              color: isDark ? Colors.white12 : Colors.black12),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-
-              Expanded(child: _body(isDark, cardBg)),
-            ],
-          ),
-          if (_opening)
-            Container(
-              color: Colors.black45,
-              child: const Center(child: CircularProgressIndicator()),
+              ),
             ),
+          ],
+          if (_query.isNotEmpty && tabs.length > 2) ...[
+            const SizedBox(height: 12),
+            FilterChips(
+              options: [for (final k in tabs) k == 'all' ? 'All' : k],
+              selected: tabs.indexOf(_kind).clamp(0, tabs.length - 1),
+              onChanged: (i) => setState(() => _kind = tabs[i]),
+            ),
+          ],
+          Expanded(child: _body(t)),
         ],
       ),
     );
   }
 
-  Widget _body(bool isDark, Color cardBg) {
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  Widget _body(DT t) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
     if (_error != null) {
-      return _emptyState(
-          isDark, Icons.cloud_off_rounded, 'Search unavailable', _error!);
+      return EmptyState(icon: Icons.cloud_off_rounded, text: _error!);
     }
     if (_query.trim().isEmpty) {
-      return _emptyState(isDark, Icons.search_rounded, 'What are you looking for?',
-          'Courses, mock tests, descriptive tests and more');
+      return _trending.isEmpty
+          ? const EmptyState(
+              icon: Icons.search_rounded,
+              text: 'Search courses, mock tests, descriptive tests and more')
+          : const SizedBox.shrink();
     }
-    if (_shown.isEmpty) {
-      return _emptyState(isDark, Icons.search_off_rounded, 'No results found',
-          'Try a different keyword or exam name');
+    final shown = _shown;
+    if (shown.isEmpty) {
+      return const EmptyState(
+          icon: Icons.search_off_rounded,
+          text: 'No results found.\nTry a different keyword or exam name.');
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _shown.length,
-      itemBuilder: (context, i) => _resultCard(_shown[i], isDark, cardBg),
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+      itemCount: shown.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, i) => _resultCard(t, shown[i]),
     );
   }
 
-  Widget _resultCard(Map<String, dynamic> r, bool isDark, Color cardBg) {
-    final priceRaw = r['price'];
-    final price = priceRaw == null
-        ? null
-        : (priceRaw is num ? priceRaw : num.tryParse('$priceRaw'));
-    final isFree = price != null && price <= 0;
-    final mrpRaw = r['original_price'];
-    final mrp = mrpRaw == null
-        ? null
-        : (mrpRaw is num ? mrpRaw : num.tryParse('$mrpRaw'));
+  Widget _resultCard(DT t, Map<String, dynamic> r) {
+    final price = _n(r['price']);
+    final mrp = _n(r['original_price']);
+    final free = price != null && price <= 0;
+    final thumb = '${r['thumbnail_url'] ?? ''}';
+    final subtitle = '${r['subtitle'] ?? ''}';
+    String money(num v) =>
+        v == v.roundToDouble() ? '${v.toInt()}' : v.toStringAsFixed(2);
 
-    final thumb = (r['thumbnail_url'] ?? '').toString();
-    final subtitle = (r['subtitle'] ?? '').toString();
-
-    return GestureDetector(
+    return AppCard(
+      padding: const EdgeInsets.all(10),
       onTap: () => _openResult(r),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: thumb.isNotEmpty
-                  ? Image.network(thumb,
-                      width: 90,
-                      height: 70,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _thumbPlaceholder())
-                  : _thumbPlaceholder(),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: SizedBox(
+              width: 84,
+              height: 64,
+              child: thumb.isEmpty
+                  ? Container(
+                      color: t.chip,
+                      child: Icon(Icons.menu_book_rounded, color: t.muted))
+                  : Container(
+                      color: t.chip,
+                      child: Image.network(thumb,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, __, ___) =>
+                              Icon(Icons.menu_book_rounded, color: t.muted)),
+                    ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: Text(
-                      (r['kind_label'] ?? '').toString(),
-                      style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primary),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    (r['title'] ?? '').toString(),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if ('${r['kind_label'] ?? ''}'.isNotEmpty)
+                  Tag('${r['kind_label']}'.toUpperCase(), color: t.primary),
+                const SizedBox(height: 4),
+                Text('${r['title'] ?? ''}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                         fontSize: 14,
-                        color: isDark ? Colors.white : Colors.black87),
-                  ),
-                  if (subtitle.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
+                        color: t.text)),
+                if (subtitle.isNotEmpty)
+                  Text(subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: isDark ? Colors.white54 : Colors.black45),
-                    ),
-                  ],
-                  if (price != null) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Text(
-                          isFree ? 'FREE' : 'Rs.${_money(price)}',
+                      style: TextStyle(fontSize: 11.5, color: t.muted)),
+                if (price != null && (free || _shop)) ...[
+                  const SizedBox(height: 4),
+                  Row(children: [
+                    Text(free ? 'FREE' : '₹${money(price)}',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 14,
+                            color: free ? kDGreen : t.text)),
+                    if (!free && mrp != null && mrp > price) ...[
+                      const SizedBox(width: 6),
+                      Text('₹${money(mrp)}',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                              color:
-                                  isFree ? Colors.green : AppColors.primary),
-                        ),
-                        if (!isFree && mrp != null && mrp > price) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            'Rs.${_money(mrp)}',
-                            style: TextStyle(
                               fontSize: 12,
-                              decoration: TextDecoration.lineThrough,
-                              color: isDark ? Colors.white38 : Colors.black38,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
+                              color: t.muted,
+                              decoration: TextDecoration.lineThrough)),
+                    ],
+                  ]),
                 ],
-              ),
+              ],
             ),
-            Icon(Icons.chevron_right_rounded,
-                color: isDark ? Colors.white38 : Colors.black38),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _money(num v) =>
-      v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(2);
-
-  Widget _thumbPlaceholder() {
-    return Container(
-      width: 90,
-      height: 70,
-      color: AppColors.primary.withOpacity(0.15),
-      child: Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 28),
-    );
-  }
-
-  Widget _emptyState(bool isDark, IconData icon, String title, String sub) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 60, color: isDark ? Colors.white24 : Colors.black26),
-            const SizedBox(height: 14),
-            Text(title,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white54 : Colors.black45)),
-            const SizedBox(height: 6),
-            Text(sub,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 13,
-                    color: isDark ? Colors.white38 : Colors.black38)),
-          ],
-        ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: t.muted),
+        ],
       ),
     );
   }

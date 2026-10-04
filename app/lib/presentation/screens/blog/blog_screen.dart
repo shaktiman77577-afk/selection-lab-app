@@ -17,6 +17,9 @@
 //   sirf ek link wala paragraph -> CTA button
 //   baaki        -> paragraph
 // Isliye renderer bhi wahi rakha hai, warna app par formatting toot jati.
+//
+// Redesign (Sep 2026): links/bullets navy (gold safed par padhne me nahi aata
+// tha), aur website ke apne links ab app ke andar khulte hain.
 
 import 'dart:convert';
 
@@ -27,10 +30,11 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../descriptive/descriptive_theme.dart';
+import '../web/site_web_screen.dart';
 
 const _site = 'https://selectionlab.in';
 
-// ── LIST ────────────────────────────────────────────────────────────────────
+// ── LIST ────────────────────────────────────────────────────────────────────────────
 
 class BlogScreen extends StatefulWidget {
   const BlogScreen({super.key});
@@ -93,14 +97,7 @@ class _BlogScreenState extends State<BlogScreen> {
 
     return Scaffold(
       backgroundColor: t.bg,
-      appBar: AppBar(
-        backgroundColor: t.bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: t.text),
-        title: Text('Blog',
-            style: TextStyle(
-                fontWeight: FontWeight.w800, color: t.text, fontSize: 17)),
-      ),
+      appBar: AppBar(title: const Text('Blog')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -214,14 +211,14 @@ class _BlogScreenState extends State<BlogScreen> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      const Text('Read more',
+                      Text('Read more',
                           style: TextStyle(
-                              color: kDGold,
+                              color: t.primary,
                               fontWeight: FontWeight.w800,
                               fontSize: 13)),
                       const SizedBox(width: 3),
-                      const Icon(Icons.arrow_forward_rounded,
-                          color: kDGold, size: 15),
+                      Icon(Icons.arrow_forward_rounded,
+                          color: t.primary, size: 15),
                     ],
                   ),
                 ],
@@ -245,7 +242,7 @@ String _fmtDate(dynamic iso) {
   return '${l.day} ${m[l.month - 1]} ${l.year}';
 }
 
-// ── POST ────────────────────────────────────────────────────────────────────
+// ── POST ────────────────────────────────────────────────────────────────────────────
 
 class BlogPostScreen extends StatefulWidget {
   final String slug;
@@ -299,12 +296,23 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
     }
   }
 
+  /// Website ka apna link ('/...' ya selectionlab.in) app ke andar khulta hai
+  /// (WebView, auto-login) — pehle browser me jaata tha jahan student
+  /// logged-in nahi hota. Baaki links browser me.
   Future<void> _openLink(String href) async {
-    final url = href.startsWith('http') ? href : '$_site$href';
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    var path = href;
+    for (final host in ['https://www.selectionlab.in', 'https://selectionlab.in']) {
+      if (path.startsWith(host)) path = path.substring(host.length);
     }
+    if (path.startsWith('/')) {
+      Navigator.push(context,
+          MaterialPageRoute(builder: (_) => SiteWebScreen(path: path)));
+      return;
+    }
+    try {
+      await launchUrl(Uri.parse(href.startsWith('http') ? href : '$_site$href'),
+          mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   // ── Renderer ──
@@ -327,8 +335,8 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
       spans.add(
         TextSpan(
           text: label,
-          style: const TextStyle(
-              color: kDGold,
+          style: TextStyle(
+              color: t.primary,
               fontWeight: FontWeight.w700,
               decoration: TextDecoration.underline),
           recognizer: _tap(() => _openLink(href)),
@@ -393,12 +401,8 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
             child: ElevatedButton(
               onPressed: () => _openLink(only.group(2) ?? ''),
               style: ElevatedButton.styleFrom(
-                backgroundColor: kDGold,
-                foregroundColor: const Color(0xFF1A1A1A),
                 padding:
                     const EdgeInsets.symmetric(horizontal: 26, vertical: 13),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
               ),
               child: Text(only.group(1) ?? '',
                   style: const TextStyle(
@@ -427,8 +431,8 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                       child: Container(
                         width: 5,
                         height: 5,
-                        decoration: const BoxDecoration(
-                            color: kDGold, shape: BoxShape.circle),
+                        decoration: BoxDecoration(
+                            color: t.primary, shape: BoxShape.circle),
                       ),
                     ),
                     Expanded(
@@ -473,15 +477,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
-        backgroundColor: t.bg,
-        elevation: 0,
-        iconTheme: IconThemeData(color: t.text),
-        title: Text(title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-                fontWeight: FontWeight.w800, color: t.text, fontSize: 16)),
-      ),
+          title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis)),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -500,10 +496,7 @@ class _BlogPostScreenState extends State<BlogPostScreen> {
                         const SizedBox(height: 16),
                         TextButton(
                             onPressed: _load,
-                            child: const Text('Try again',
-                                style: TextStyle(
-                                    color: kDGold,
-                                    fontWeight: FontWeight.w800))),
+                            child: const Text('Try again')),
                       ],
                     ),
                   ),

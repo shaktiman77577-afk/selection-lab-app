@@ -1,9 +1,11 @@
 // lib/presentation/screens/descriptive/descriptive_series_detail_screen.dart
 //
 // UI matched 1:1 with the website (selectionlab.in/descriptive/[id]).
+// Purchase band (admin switch) ho to price/Buy nahi, sirf lock.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/shop.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
 import 'descriptive_theme.dart';
@@ -35,12 +37,18 @@ class _DescriptiveSeriesDetailScreenState
     _load();
   }
 
+  /// User id int ya string dono me aa sakti hai — kabhi `as int` nahi
+  int? get _uid {
+    final raw = context.read<AuthProvider>().user?['id'];
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-    final uid = context.read<AuthProvider>().user?['id'] as int?;
+    final uid = _uid;
     try {
       final res = await DescriptiveApi.seriesDetail(widget.seriesId, uid);
       if (!mounted) return;
@@ -76,8 +84,11 @@ class _DescriptiveSeriesDetailScreenState
       .showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _buy() async {
-    final auth = context.read<AuthProvider>();
-    final uid = auth.user?['id'] as int?;
+    if (!context.shopOnRead) {
+      _snack(kNotInAppMsg); // purchase band hai
+      return;
+    }
+    final uid = _uid;
     if (uid == null) {
       _snack('Please log in to continue.');
       return;
@@ -102,7 +113,7 @@ class _DescriptiveSeriesDetailScreenState
   }
 
   void _openTest(Map<String, dynamic> t) {
-    if (context.read<AuthProvider>().user?['id'] == null) {
+    if (_uid == null) {
       _snack('Please log in to continue.');
       return;
     }
@@ -188,7 +199,7 @@ class _DescriptiveSeriesDetailScreenState
                               style: TextStyle(color: t.muted, fontSize: 14))
                         else
                           ..._tests.map((x) => _testRow(x, t)),
-                        if (!_purchased && _price > 0) ...[
+                        if (!_purchased && _price > 0 && context.shopOn) ...[
                           const SizedBox(height: 20),
                           Center(
                             child: GoldButton(
@@ -210,6 +221,20 @@ class _DescriptiveSeriesDetailScreenState
   Widget _heroFooter(DT t) {
     if (_purchased) {
       return _pill('✓ Purchased');
+    }
+    if (_price > 0 && !context.shopOn) {
+      // Purchase band: price/Buy nahi
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10)),
+        child: const Text('🔒 Locked in the app',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13)),
+      );
     }
     if (_price > 0) {
       return Row(

@@ -1,14 +1,25 @@
+// lib/presentation/screens/courses/course_list_screen.dart
+//
+// Redesign (Sep 2026): clean list, ProductCard. Kharide hue course par
+// ENROLLED. Purana nakli "4.8 rating" hata diya — backend ye deta hi nahi tha.
+
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../../core/theme/app_theme.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/constants/app_constants.dart';
+import '../../../core/widgets/ui.dart';
+import '../../../data/providers/auth_provider.dart';
 import 'course_detail_screen.dart';
 
 class CourseListScreen extends StatefulWidget {
   final String title;
   final String courseType;
-  const CourseListScreen({super.key, required this.title, required this.courseType});
+  const CourseListScreen(
+      {super.key, required this.title, required this.courseType});
 
   @override
   State<CourseListScreen> createState() => _CourseListScreenState();
@@ -16,202 +27,116 @@ class CourseListScreen extends StatefulWidget {
 
 class _CourseListScreenState extends State<CourseListScreen> {
   List<Map<String, dynamic>> _courses = [];
+  Set<String> _mine = {};
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadCourses();
+    _load();
   }
 
-  Future<void> _loadCourses() async {
+  int? get _uid {
+    final raw = context.read<AuthProvider>().user?['id'];
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
+  }
+
+  List<Map<String, dynamic>> _list(dynamic d) {
+    final l = d is List ? d : (d is Map ? d['courses'] : null);
+    if (l is! List) return [];
+    return l.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+  }
+
+  Future<void> _load() async {
+    setState(() {
+      _loading = _courses.isEmpty;
+      _error = null;
+    });
     try {
-      final res = await http
-          .get(Uri.parse('https://api.selectionlab.online/api/courses?course_type=${Uri.encodeComponent(widget.courseType)}'))
-          .timeout(const Duration(seconds: 10));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        setState(() {
-          _courses = List<Map<String, dynamic>>.from(data['courses']);
-          _loading = false;
-        });
-      } else {
-        setState(() => _loading = false);
+      final uid = _uid;
+      final res = await Future.wait([
+        http
+            .get(Uri.parse(
+                '${AppConstants.apiUrl}/courses?platform=app&course_type=${Uri.encodeComponent(widget.courseType)}'))
+            .timeout(const Duration(seconds: 12)),
+        if (uid != null)
+          http
+              .get(Uri.parse('${AppConstants.apiUrl}/courses/my/$uid'))
+              .timeout(const Duration(seconds: 12)),
+      ]);
+      if (res[0].statusCode != 200) throw Exception('status');
+      final courses = _list(jsonDecode(res[0].body));
+      var mine = <String>{};
+      if (res.length > 1 && res[1].statusCode == 200) {
+        mine = _list(jsonDecode(res[1].body)).map((c) => '${c['id']}').toSet();
       }
+      if (!mounted) return;
+      setState(() {
+        _courses = courses;
+        _mine = mine;
+        _loading = false;
+      });
     } catch (_) {
-      setState(() => _loading = false);
+      if (!mounted) return;
+      setState(() {
+        _error = 'Could not load courses. Check your internet.';
+        _loading = false;
+      });
     }
   }
 
-  void _openCourse(Map<String, dynamic> c) {
+  num _num(dynamic v) => v is num ? v : num.tryParse('${v ?? ''}') ?? 0;
+
+  void _open(Map<String, dynamic> c) {
     HapticFeedback.lightImpact();
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CourseDetailScreen(course: c)));
+    Navigator.push(context,
+        MaterialPageRoute(builder: (_) => CourseDetailScreen(course: c)));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? const Color(0xFF0F0F0F) : const Color(0xFFF5F6FA);
-    final cardBg = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+    final t = dtOf(context);
+    final state = ListStateView(
+      loading: _loading,
+      error: _error,
+      empty: _courses.isEmpty,
+      emptyText: 'No ${widget.title.toLowerCase()} available yet.',
+      emptyIcon: Icons.school_outlined,
+      onRetry: _load,
+    );
 
     return Scaffold(
-      backgroundColor: bg,
-      appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF0F0F0F) : Colors.white,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black87),
-        title: Text(
-          widget.title,
-          style: TextStyle(
-            color: isDark ? Colors.white : Colors.black87,
-            fontWeight: FontWeight.bold,
-            fontSize: 18,
-          ),
+      backgroundColor: t.bg,
+      appBar: AppBar(title: Text(widget.title)),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: ListView(
+          padding: const EdgeInsets.only(top: 12, bottom: 32),
+          children: [
+            if (state.show)
+              state
+            else
+              for (final c in _courses)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                  child: ProductCard(
+                    img:
+                        '${c['thumbnail_url_mobile'] ?? c['thumbnail_url'] ?? ''}',
+                    title: '${c['title'] ?? c['name'] ?? 'Course'}',
+                    meta: _num(c['students_count']) > 0
+                        ? '${_num(c['students_count']).toInt()}+ students'
+                        : '${c['course_type'] ?? ''}',
+                    price: _num(c['price']),
+                    original: _num(c['original_price']),
+                    owned: _mine.contains('${c['id']}'),
+                    fallbackIcon: Icons.school_rounded,
+                    onTap: () => _open(c),
+                  ),
+                ),
+          ],
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _courses.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.inbox_rounded, size: 56, color: isDark ? Colors.white24 : Colors.black26),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No ${widget.title} available yet',
-                        style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 15),
-                      ),
-                    ],
-                  ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: _courses.length,
-                  itemBuilder: (context, i) {
-                    final c = _courses[i];
-                    final price = c['price']?.toString() ?? '0';
-                    final originalPrice = c['original_price']?.toString();
-                    final isFree = price == '0' || price == '0.0';
-                    final hasDiscount = !isFree && originalPrice != null && originalPrice != price && double.tryParse(originalPrice) != null;
-                    final discount = hasDiscount
-                        ? ((1 - double.parse(price) / double.parse(originalPrice!)) * 100).round()
-                        : 0;
-
-                    return GestureDetector(
-                      onTap: () => _openCourse(c),
-                      child: Container(
-                        margin: const EdgeInsets.only(bottom: 14),
-                        decoration: BoxDecoration(
-                          color: cardBg,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark ? Colors.black26 : Colors.black.withOpacity(0.07),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Thumbnail
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                              child: Stack(
-                                children: [
-                                  c['thumbnail_url'] != null
-                                      ? Image.network(
-                                          c['thumbnail_url'],
-                                          width: double.infinity,
-                                          height: 160,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) => Container(
-                                            height: 160,
-                                            color: AppColors.primary.withOpacity(0.15),
-                                            child: Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 48),
-                                          ),
-                                        )
-                                      : Container(
-                                          height: 160,
-                                          color: AppColors.primary.withOpacity(0.15),
-                                          child: Icon(Icons.menu_book_rounded, color: AppColors.primary, size: 48),
-                                        ),
-                                  if (isFree)
-                                    Positioned(
-                                      top: 10, left: 10,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.green, borderRadius: BorderRadius.circular(6)),
-                                        child: const Text('FREE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                      ),
-                                    )
-                                  else if (hasDiscount)
-                                    Positioned(
-                                      top: 10, left: 10,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                        decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(6)),
-                                        child: Text('$discount% OFF', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    c['title'] ?? '',
-                                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.star_rounded, color: Colors.amber, size: 15),
-                                      const SizedBox(width: 3),
-                                      Text((c['rating'] ?? 4.8).toString(), style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.black54, fontWeight: FontWeight.w600)),
-                                      const SizedBox(width: 4),
-                                      Text('(${c['students_count'] ?? 0}+ Students)', style: TextStyle(fontSize: 11, color: isDark ? Colors.white38 : Colors.black38)),
-                                      const Spacer(),
-                                      if (isFree)
-                                        Text('FREE', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green))
-                                      else ...[
-                                        Text('₹$price', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                        if (hasDiscount) ...[
-                                          const SizedBox(width: 6),
-                                          Text('₹$originalPrice', style: const TextStyle(fontSize: 12, color: Colors.grey, decoration: TextDecoration.lineThrough)),
-                                        ],
-                                      ],
-                                    ],
-                                  ),
-                                  const SizedBox(height: 12),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: ElevatedButton(
-                                      onPressed: () => _openCourse(c),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(vertical: 12),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                      ),
-                                      child: Text(isFree ? 'Start Learning' : 'View Course', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
     );
   }
 }

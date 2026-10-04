@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
 import 'core/constants/app_constants.dart';
+import 'core/network/auth_client.dart';
+import 'core/widgets/update_gate.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/providers/app_config_provider.dart';
 import 'presentation/screens/auth/splash_screen.dart';
@@ -43,7 +46,12 @@ void main() async {
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   PushService.init();
-  runApp(const SelectionLabApp());
+  // Har http.get/post me login token apne aap (sirf hamare API par) —
+  // dekho core/network/auth_client.dart
+  http.runWithClient(
+    () => runApp(const SelectionLabApp()),
+    () => AuthClient(),
+  );
 }
 
 class SelectionLabApp extends StatefulWidget {
@@ -89,6 +97,9 @@ class _SelectionLabAppState extends State<SelectionLabApp> {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: _themeMode,
+        // Update check poore app ke upar — purana build ho to "Please update"
+        builder: (context, child) =>
+            UpdateGate(child: child ?? const SizedBox.shrink()),
         home: SplashScreen(onToggleTheme: toggleTheme),
       ),
     );

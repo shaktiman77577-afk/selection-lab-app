@@ -1,13 +1,22 @@
 // lib/presentation/screens/mock/mock_series_detail_screen.dart
 //
 // Mock series detail — tests list + buy (Razorpay via /payments/series-order).
+//
+// Website jaisa (Sep 2026):
+// - Diya hua test: score + ✓/✗, "Solution" aur "Reattempt" buttons.
+//   Test par tap = seedha solution (backend `my_attempt` bhejta hai).
+// - Series ka apna Telegram group ho to uska card.
+// - Purchase band (admin switch) ho to price/Buy nahi, sirf lock.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
 import 'mock_instructions_screen.dart';
+import 'mock_review_screen.dart';
+import '../../../core/shop.dart';
 import '../../../core/utils/share_helper.dart';
 import '../checkout/checkout_screen.dart';
 
@@ -33,12 +42,18 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
     _load();
   }
 
+  /// User id int ya string dono me aa sakti hai — kabhi `as int` nahi
+  int? get _uid {
+    final raw = context.read<AuthProvider>().user?['id'];
+    return raw is int ? raw : int.tryParse('${raw ?? ''}');
+  }
+
   Future<void> _load() async {
     setState(() {
       _loading = true;
       _error = null;
     });
-    final uid = context.read<AuthProvider>().user?['id'] as int?;
+    final uid = _uid;
     try {
       final res = await MockApi.seriesDetail(widget.seriesId, uid);
       if (!mounted) return;
@@ -74,9 +89,11 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(m)));
 
   Future<void> _buy() async {
-    final auth = context.read<AuthProvider>();
-    final uid = auth.user?['id'] as int?;
-    if (uid == null) {
+    if (!context.shopOnRead) {
+      _snack(kNotInAppMsg); // purchase band hai
+      return;
+    }
+    if (_uid == null) {
       _snack('Please log in to continue.');
       return;
     }
@@ -99,26 +116,60 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
     }
   }
 
+  Map<String, dynamic>? _attempt(Map<String, dynamic> t) {
+    final a = t['my_attempt'];
+    return a is Map ? Map<String, dynamic>.from(a) : null;
+  }
+
+  /// Naya test / reattempt — instructions se player
+  Future<void> _start(Map<String, dynamic> t) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MockInstructionsScreen(test: t)),
+    );
+    if (mounted) _load(); // wapas aane par naya score dikhe
+  }
+
+  void _solution(Map<String, dynamic> t) {
+    final id = t['id'] is int ? t['id'] as int : int.tryParse('${t['id']}');
+    if (id == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MockReviewScreen(testId: id, userId: _uid),
+      ),
+    );
+  }
+
   void _openTest(Map<String, dynamic> t) {
-    if (context.read<AuthProvider>().user?['id'] == null) {
+    if (_uid == null) {
       _snack('Please log in to continue.');
       return;
     }
-    if (t['is_unlocked'] == true) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => MockInstructionsScreen(test: t),
-        ),
-      );
-    } else {
+    if (t['is_unlocked'] != true) {
       _buy();
+      return;
+    }
+    // Pehle de chuke hain to seedha solution — website jaisa
+    if (_attempt(t) != null) {
+      _solution(t);
+    } else {
+      _start(t);
+    }
+  }
+
+  Future<void> _openTelegram(String url) async {
+    try {
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      _snack('Could not open Telegram.');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = DT(Theme.of(context).brightness == Brightness.dark);
+    final tg = (_series?['telegram_group'] ?? '').toString().trim();
     return Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
@@ -148,53 +199,112 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
               ? Center(
                   child: Text(_error ?? 'Series not found.',
                       style: TextStyle(color: t.muted)))
-              : ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
-                  children: [
-                    DescriptiveHero(
-                      title: _series!['title']?.toString() ?? '',
-                      subtitle:
-                          (_series!['description'] ?? '').toString().isEmpty
-                              ? null
-                              : _series!['description'].toString(),
-                      footer: _heroFooter(t),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 26, bottom: 10),
-                      child: Text('Tests',
-                          style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: t.text)),
-                    ),
-                    if (_tests.isEmpty)
-                      Text('Tests will be added soon.',
-                          style: TextStyle(color: t.muted, fontSize: 14))
-                    else
-                      ..._tests.asMap().entries.map(
-                          (e) => _testRow(e.key + 1, e.value, t)),
-                    if (!_purchased && _price > 0) ...[
-                      const SizedBox(height: 20),
-                      Center(
-                        child: GoldButton(
-                          label: _buying
-                              ? 'Please wait…'
-                              : 'Unlock all tests · ₹${_price.toInt()}',
-                          onTap: _buying ? null : _buy,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 13),
-                          fontSize: 15,
-                        ),
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                    children: [
+                      DescriptiveHero(
+                        title: _series!['title']?.toString() ?? '',
+                        subtitle:
+                            (_series!['description'] ?? '').toString().isEmpty
+                                ? null
+                                : _series!['description'].toString(),
+                        footer: _heroFooter(t),
                       ),
+                      if (tg.startsWith('http')) ...[
+                        const SizedBox(height: 14),
+                        _telegramCard(tg),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.only(top: 26, bottom: 10),
+                        child: Text('Tests',
+                            style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: t.text)),
+                      ),
+                      if (_tests.isEmpty)
+                        Text('Tests will be added soon.',
+                            style: TextStyle(color: t.muted, fontSize: 14))
+                      else
+                        ..._tests.asMap().entries.map(
+                            (e) => _testRow(e.key + 1, e.value, t)),
+                      if (!_purchased && _price > 0 && context.shopOn) ...[
+                        const SizedBox(height: 20),
+                        Center(
+                          child: GoldButton(
+                            label: _buying
+                                ? 'Please wait…'
+                                : 'Unlock all tests · ₹${_price.toInt()}',
+                            onTap: _buying ? null : _buy,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 13),
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
+    );
+  }
+
+  Widget _telegramCard(String url) {
+    return GestureDetector(
+      onTap: () => _openTelegram(url),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              colors: [Color(0xFF229ED9), Color(0xFF1C8BBF)]),
+          borderRadius: BorderRadius.circular(13),
+        ),
+        child: const Row(
+          children: [
+            Text('✈️', style: TextStyle(fontSize: 23)),
+            SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Join dedicated Telegram channel',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14)),
+                  SizedBox(height: 2),
+                  Text('Exam updates, doubts and free material',
+                      style: TextStyle(color: Colors.white70, fontSize: 11.5)),
+                ],
+              ),
+            ),
+            Text('→',
+                style: TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w800)),
+          ],
+        ),
+      ),
     );
   }
 
   Widget _heroFooter(DT t) {
     if (_purchased) {
       return _pill('✓ Full access');
+    }
+    if (_price > 0 && !context.shopOn) {
+      // Purchase band: price/Buy nahi
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(10)),
+        child: const Text('🔒 Locked in the app',
+            style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 13)),
+      );
     }
     if (_price > 0) {
       return Row(
@@ -234,6 +344,22 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                 fontSize: 13)),
       );
 
+  Widget _smallBtn(String label, Color fg, Color border, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border.all(color: border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                color: fg, fontSize: 11.5, fontWeight: FontWeight.w800)),
+      ),
+    );
+  }
+
   Widget _testRow(int index, Map<String, dynamic> t, DT th) {
     final unlocked = t['is_unlocked'] == true;
     final isFree = t['is_free'] == true;
@@ -241,6 +367,12 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
     final dur = t['duration_minutes'] ?? 0;
     final marks = t['total_marks'] ?? 0;
     final neg = _num(t['negative_marking']);
+    final att = _attempt(t);
+
+    String fmt(dynamic v) {
+      final n = _num(v);
+      return n == n.roundToDouble() ? '${n.toInt()}' : n.toStringAsFixed(2);
+    }
 
     return Opacity(
       opacity: unlocked ? 1 : 0.65,
@@ -267,7 +399,12 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                       : th.chip,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(unlocked ? '$index' : '🔒',
+                child: Text(
+                    att != null
+                        ? '✓'
+                        : unlocked
+                            ? '$index'
+                            : '🔒',
                     style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 14,
@@ -288,10 +425,30 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                       '$q Qs · $dur min · $marks marks${neg > 0 ? ' · −$neg' : ''}',
                       style: TextStyle(fontSize: 12, color: th.muted),
                     ),
+                    if (att != null) ...[
+                      const SizedBox(height: 4),
+                      Text.rich(
+                        TextSpan(children: [
+                          TextSpan(
+                            text:
+                                'Attempted · ${fmt(att['score'])}/${fmt(att['total_marks'] ?? marks)} marks',
+                            style: const TextStyle(
+                                color: kDGreen, fontWeight: FontWeight.w700),
+                          ),
+                          TextSpan(
+                            text:
+                                ' · ✓${att['correct'] ?? 0} ✗${att['wrong'] ?? 0}',
+                            style: TextStyle(
+                                color: th.muted, fontWeight: FontWeight.w600),
+                          ),
+                        ]),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ],
                   ],
                 ),
               ),
-              if (isFree && !_purchased)
+              if (isFree && !_purchased && att == null)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -304,7 +461,21 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                           fontWeight: FontWeight.w800,
                           color: kDGreen)),
                 ),
-              if (unlocked)
+              if (att != null && unlocked)
+                Padding(
+                  padding: const EdgeInsets.only(left: 8),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _smallBtn('Solution', kDGold, kDGold,
+                          () => _solution(t)),
+                      const SizedBox(height: 6),
+                      _smallBtn('Reattempt', th.text2, th.line,
+                          () => _start(t)),
+                    ],
+                  ),
+                )
+              else if (unlocked)
                 const Padding(
                   padding: EdgeInsets.only(left: 6),
                   child: Text('→',

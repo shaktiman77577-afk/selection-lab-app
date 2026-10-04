@@ -7,9 +7,6 @@ class AppConstants {
   static const String register = "/auth/register";
   static const String profile = "/users/profile";
   static const String categories = "/exams/categories";
-  static const String quizStart = "/quiz/start";
-  static const String quizSubmit = "/quiz/submit-answer";
-  static const String quizFinish = "/quiz/finish";
   static const String mockTests = "/mock-tests/";
   static const String notifications = "/notifications/";
   static const String bookmarks = "/users/bookmarks";
