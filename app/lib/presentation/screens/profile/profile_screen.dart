@@ -17,6 +17,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/support_info.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../about/about_screen.dart';
@@ -44,9 +45,32 @@ class ProfileScreen extends StatelessWidget {
     } catch (_) {}
   }
 
-  void _contactSupport(String userName) {
-    final msg = Uri.encodeComponent(
-        'Hi Selection Lab Team,\n\nI am $userName. I need help with: ');
+  /// WhatsApp par message khulta hai jisme student ke details pehle se likhe
+  /// hote hain (naam, registered email, phone, user id, device, app version) -
+  /// taaki support ko baar-baar poochna na pade. "I need help with:" sabse
+  /// neeche hai, cursor wahin khada hota hai, student seedha dikkat likhe.
+  Future<void> _contactSupport(BuildContext context) async {
+    final u = context.read<AuthProvider>().user ?? {};
+    String v(dynamic x) {
+      final s = '${x ?? ''}'.trim();
+      return s.isEmpty ? '-' : s;
+    }
+
+    final device = await SupportInfo.device();
+    final app = await SupportInfo.app();
+    final msg = Uri.encodeComponent([
+      'Hi Selection Lab Team,',
+      '',
+      'My details:',
+      'Name: ${v(u['name'])}',
+      'Registered email: ${v(u['email'])}',
+      'Phone: ${v(u['phone'])}',
+      'User ID: ${v(u['id'])}',
+      'Device: $device',
+      'App: $app',
+      '',
+      'I need help with: ',
+    ].join('\n'));
     _launch('https://wa.me/$supportNumber?text=$msg');
   }
 
@@ -285,7 +309,7 @@ class ProfileScreen extends StatelessWidget {
                 () => push(const SupportScreen()),
                 color: const Color(0xFFB47F00)),
             _item(t, Icons.support_agent_rounded, 'Chat on WhatsApp',
-                'Quick question? Message us', () => _contactSupport(name),
+                'Quick question? Message us', () => _contactSupport(context),
                 color: const Color(0xFF1FA855)),
             _item(t, Icons.telegram, 'Join Telegram', 'Updates & discussion',
                 () => _launch(telegramLink),

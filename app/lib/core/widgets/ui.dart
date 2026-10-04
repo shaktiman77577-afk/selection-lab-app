@@ -243,11 +243,17 @@ class ProductCard extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: SizedBox(
-              height: 96,
+            // Fixed height nahi, sirf minimum - title 2 line + free tests + lock
+            // aane par card apne aap badhta hai (pehle 16px overflow hota tha)
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                   Text(title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -271,7 +277,9 @@ class ProductCard extends StatelessWidget {
                             fontWeight: FontWeight.w700,
                             color: kDGreen)),
                   ],
-                  const Spacer(),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       if (owned)
