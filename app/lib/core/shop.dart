@@ -20,11 +20,16 @@ import 'package:provider/provider.dart';
 import '../data/providers/app_config_provider.dart';
 
 extension ShopX on BuildContext {
+  // Provider.of seedha likha hai (context.watch/read ke bajaye) taaki extension
+  // ke andar koi naam-ambiguity ya compile ka jhanjhat na ho.
   bool get shopOn =>
-      watch<AppConfigProvider>().config['app_purchases_enabled'] == true;
+      Provider.of<AppConfigProvider>(this).config['app_purchases_enabled'] ==
+      true;
 
   bool get shopOnRead =>
-      read<AppConfigProvider>().config['app_purchases_enabled'] == true;
+      Provider.of<AppConfigProvider>(this, listen: false)
+          .config['app_purchases_enabled'] ==
+      true;
 }
 
 /// Locked cheez par ek jaisa message (isme "website" ya koi link nahi — Play

@@ -29,7 +29,7 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onToggleTheme;
   const ProfileScreen({super.key, required this.onToggleTheme});
 
-  static const String supportNumber = '918860055778';
+  static const String supportNumber = '918448493637'; // +91 84484 93637
   static const String telegramLink = 'https://t.me/Selection_Lab';
   static const String youtubeLink = 'https://youtube.com/@selection_lab';
   static const String termsUrl = 'https://selectionlab.in/terms';
