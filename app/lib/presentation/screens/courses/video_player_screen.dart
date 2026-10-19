@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+import '../../../core/secure_screen.dart';
 import '../../../core/theme/app_theme.dart';
 
 /// Plays a video from a direct HLS (.m3u8) or MP4 URL — e.g. a Bunny Stream
@@ -27,6 +28,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enter(); // paid video — screenshot / screen recording band
     _init();
   }
 
@@ -69,6 +71,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> {
   void dispose() {
     _videoController?.dispose();
     _chewieController?.dispose();
+    SecureScreen.exit();
     super.dispose();
   }
 

@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  SECURITY (Oct 2026):
+  - Sirf https. Pehle api.selectionlab.online par cleartext (http) bhi allowed tha.
+  - Sirf phone ke SYSTEM certificates. Pehle "user" certificates bhi maane jaate
+    the, yani koi apne phone me proxy ka certificate daal kar (HTTP Toolkit,
+    Charles) app ka poora traffic padh aur badal sakta tha.
+-->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="true">api.selectionlab.online</domain>
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system"/>
-            <certificates src="user"/>
         </trust-anchors>
-    </domain-config>
+    </base-config>
 </network-security-config>

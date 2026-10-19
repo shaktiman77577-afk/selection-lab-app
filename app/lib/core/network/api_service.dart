@@ -26,14 +26,15 @@ class ApiService {
     try {
       final headers = await getHeaders();
       final uri = Uri.parse("${AppConstants.apiUrl}$endpoint");
-      debugPrint('GET: $uri');
+      if (kDebugMode) debugPrint('GET: $uri');
       final res = await http.get(uri, headers: headers).timeout(_timeout);
-      debugPrint('Response ${res.statusCode}: ${res.body}');
+      // Release build me body log nahi — logcat me answers / token dikhte the
+      if (kDebugMode) debugPrint('Response ${res.statusCode}: ${res.body}');
       return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException {
       return {'error': 'No internet connection'};
     } catch (e) {
-      debugPrint('GET error: $e');
+      if (kDebugMode) debugPrint('GET error: $e');
       return {'error': e.toString()};
     }
   }
@@ -42,15 +43,17 @@ class ApiService {
     try {
       final headers = await getHeaders();
       final uri = Uri.parse("${AppConstants.apiUrl}$endpoint");
-      debugPrint('POST: $uri');
-      debugPrint('Body: ${jsonEncode(body)}');
+      if (kDebugMode) {
+        debugPrint('POST: $uri');
+        debugPrint('Body: ${jsonEncode(body)}');
+      }
       final res = await http.post(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
-      debugPrint('Response ${res.statusCode}: ${res.body}');
+      if (kDebugMode) debugPrint('Response ${res.statusCode}: ${res.body}');
       return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException {
       return {'error': 'No internet connection'};
     } catch (e) {
-      debugPrint('POST error: $e');
+      if (kDebugMode) debugPrint('POST error: $e');
       return {'error': e.toString()};
     }
   }
