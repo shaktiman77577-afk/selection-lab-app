@@ -62,7 +62,7 @@ android {
 
     defaultConfig {
         applicationId "com.selectionlab"
-        minSdk 21
+        minSdk 24   // Play automatic protection (anti-tamper) ke liye 24+ zaroori
         targetSdk 36
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
