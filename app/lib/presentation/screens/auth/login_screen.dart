@@ -1,9 +1,11 @@
 // lib/presentation/screens/auth/login_screen.dart
 //
 // UI matched to the website login (selectionlab.in/login):
-// soft gradient, logo, "Welcome to Selection Lab", white card with a
-// "Continue with Google" button, trust badges, terms.
-// FUNCTION UNCHANGED — still Google Sign-In via AuthProvider.
+// soft gradient, logo, "Welcome to Selection Lab", white card, trust badges.
+//
+// Oct 2026 — login bina OTP (website jaisa, har SMS ~₹5):
+//   Google  ->  ya mobile/email + password ("Forgot password?")
+//   Naya account -> "Create account with mobile OTP" (sirf yahin OTP).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,7 +13,7 @@ import 'package:provider/provider.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../home/home_screen.dart';
 import 'profile_setup_screen.dart';
-import 'email_login_screen.dart';
+import 'forgot_password_screen.dart';
 import 'phone_login_screen.dart';
 
 const _navy = Color(0xFF1A2F55);
@@ -30,6 +32,9 @@ class _LoginScreenState extends State<LoginScreen>
   late AnimationController _c;
   late Animation<double> _fade;
   late Animation<Offset> _slide;
+  final _idCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  bool _obscure = true;
 
   @override
   void initState() {
@@ -45,8 +50,70 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   void dispose() {
     _c.dispose();
+    _idCtrl.dispose();
+    _passCtrl.dispose();
     super.dispose();
   }
+
+  /// Login ke baad: profile adhoori ho to setup, warna home.
+  void _routeAfterLogin(String result) {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    if (result == 'home') {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(
+            builder: (_) => HomeScreen(onToggleTheme: widget.onToggleTheme)),
+        (_) => false,
+      );
+    } else if (result == 'profile_setup') {
+      final u = auth.user ?? {};
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ProfileSetupScreen(
+            onToggleTheme: widget.onToggleTheme,
+            googleId: (u['google_id'] ?? '').toString(),
+            email: (u['email'] ?? '').toString(),
+            displayName: (u['name'] ?? '').toString(),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _passwordLogin() async {
+    FocusScope.of(context).unfocus();
+    final auth = context.read<AuthProvider>();
+    final id = _idCtrl.text.trim();
+    if (id.isEmpty || _passCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please enter your mobile number (or email) and password')));
+      return;
+    }
+    HapticFeedback.mediumImpact();
+    final res = await auth.loginWithPassword(id, _passCtrl.text);
+    _routeAfterLogin(res);
+  }
+
+  InputDecoration _field(String hint, IconData icon, {Widget? suffix}) =>
+      InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(color: Color(0xFF9AA1AD)),
+        prefixIcon: Icon(icon, size: 20, color: const Color(0xFF8A919D)),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: const Color(0xFFF7F8FA),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE2E5EA), width: 1.5),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: _gold, width: 1.5),
+        ),
+      );
 
   // FUNCTION PRESERVED — Google Sign-In + routing.
   Future<void> _googleSignIn() async {
@@ -231,11 +298,124 @@ class _LoginScreenState extends State<LoginScreen>
                                     ),
                                   ),
 
-                                  const SizedBox(height: 12),
+                                  // ── OR ──
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 18),
+                                    child: Row(
+                                      children: const [
+                                        Expanded(child: Divider(color: Color(0xFFE6E8EC), height: 1)),
+                                        Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 12),
+                                          child: Text('OR',
+                                              style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Color(0xFF9AA1AD),
+                                                  fontWeight: FontWeight.w600)),
+                                        ),
+                                        Expanded(child: Divider(color: Color(0xFFE6E8EC), height: 1)),
+                                      ],
+                                    ),
+                                  ),
 
-                                  // Mobile OTP — website jaisa. Zyadatar
-                                  // students ke paas Google nahi hota, phone
-                                  // sabke paas hota hai.
+                                  // Mobile/email + password — OTP nahi lagta
+                                  TextField(
+                                    controller: _idCtrl,
+                                    keyboardType: TextInputType.emailAddress,
+                                    autofillHints: const [AutofillHints.username],
+                                    textInputAction: TextInputAction.next,
+                                    style: const TextStyle(
+                                        color: Color(0xFF1F1F1F),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600),
+                                    decoration: _field('Mobile number or email',
+                                        Icons.person_outline_rounded),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  TextField(
+                                    controller: _passCtrl,
+                                    obscureText: _obscure,
+                                    autofillHints: const [AutofillHints.password],
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) => _passwordLogin(),
+                                    style: const TextStyle(
+                                        color: Color(0xFF1F1F1F),
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600),
+                                    decoration: _field(
+                                      'Password',
+                                      Icons.lock_outline_rounded,
+                                      suffix: IconButton(
+                                        icon: Icon(
+                                            _obscure
+                                                ? Icons.visibility_off_rounded
+                                                : Icons.visibility_rounded,
+                                            size: 20,
+                                            color: const Color(0xFF8A919D)),
+                                        onPressed: () =>
+                                            setState(() => _obscure = !_obscure),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed:
+                                          auth.isLoading ? null : _passwordLogin,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: _gold,
+                                        foregroundColor: const Color(0xFF1A1A1A),
+                                        disabledBackgroundColor:
+                                            _gold.withOpacity(0.5),
+                                        elevation: 0,
+                                        padding: const EdgeInsets.symmetric(
+                                            vertical: 15),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(12)),
+                                      ),
+                                      child: Text(
+                                          auth.isLoading
+                                              ? 'Please wait...'
+                                              : 'Sign In',
+                                          style: const TextStyle(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w800)),
+                                    ),
+                                  ),
+                                  Align(
+                                    alignment: Alignment.centerRight,
+                                    child: TextButton(
+                                      onPressed: auth.isLoading
+                                          ? null
+                                          : () => Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ForgotPasswordScreen(
+                                                    onToggleTheme:
+                                                        widget.onToggleTheme,
+                                                    initialIdentifier:
+                                                        _idCtrl.text.trim(),
+                                                  ),
+                                                ),
+                                              ),
+                                      child: const Text('Forgot password?',
+                                          style: TextStyle(
+                                              color: _navy,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700)),
+                                    ),
+                                  ),
+
+                                  const Divider(color: Color(0xFFEEF0F3), height: 20),
+                                  const SizedBox(height: 6),
+                                  const Text('New to Selection Lab?',
+                                      style: TextStyle(
+                                          fontSize: 13, color: Color(0xFF5C6472))),
+                                  const SizedBox(height: 10),
+
+                                  // Naya account — sirf yahin OTP (SMS ka kharcha)
                                   SizedBox(
                                     width: double.infinity,
                                     child: OutlinedButton(
@@ -256,7 +436,7 @@ class _LoginScreenState extends State<LoginScreen>
                                       style: OutlinedButton.styleFrom(
                                         backgroundColor: Colors.transparent,
                                         side: const BorderSide(
-                                            color: Color(0xFFDCDFE4),
+                                            color: Color(0xFFD6DAE2),
                                             width: 1.5),
                                         shape: RoundedRectangleBorder(
                                             borderRadius:
@@ -268,43 +448,15 @@ class _LoginScreenState extends State<LoginScreen>
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
                                         children: [
-                                          Icon(Icons.phone_outlined,
+                                          Icon(Icons.phone_android_rounded,
                                               size: 20, color: _navy),
                                           SizedBox(width: 10),
-                                          Text('Continue with Mobile OTP',
+                                          Text('Create account with mobile OTP',
                                               style: TextStyle(
-                                                  fontSize: 15,
+                                                  fontSize: 14.5,
                                                   fontWeight: FontWeight.w700,
                                                   color: _navy)),
                                         ],
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Email login — chhota link, kyunki bahut kam
-                                  // log ise use karte hain (par Play Store
-                                  // review ke liye rehna zaroori hai).
-                                  const SizedBox(height: 10),
-                                  Center(
-                                    child: TextButton(
-                                      onPressed: auth.isLoading
-                                          ? null
-                                          : () => Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      EmailLoginScreen(
-                                                    onToggleTheme:
-                                                        widget.onToggleTheme,
-                                                  ),
-                                                ),
-                                              ),
-                                      child: const Text(
-                                        'Login with email instead',
-                                        style: TextStyle(
-                                            fontSize: 13.5,
-                                            fontWeight: FontWeight.w600,
-                                            color: Color(0xFF776F5C)),
                                       ),
                                     ),
                                   ),
