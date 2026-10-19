@@ -182,8 +182,17 @@ class EmptyState extends StatelessWidget {
   }
 }
 
+/// API ke item se card ka tag: 🔥 Trending (pichhle 30 din me sale) ya
+/// NEW (pichhle 30 din me bana). Website jaisa (Oct 2026).
+String? cardTag(Map m) => m['is_trending'] == true
+    ? 'trending'
+    : m['is_new'] == true
+        ? 'new'
+        : null;
+
 /// List screens ka ek jaisa card — course, mock series, descriptive series.
 /// Bayen poster, dayen naam, chhoti jaankari, daam / ENROLLED.
+/// Oct 2026: "Exam Over" (card halka, kharid band) aur Trending / NEW tag.
 class ProductCard extends StatelessWidget {
   final String img;
   final String title;
@@ -194,6 +203,8 @@ class ProductCard extends StatelessWidget {
   final IconData fallbackIcon;
   final String? highlight; // jaise "2 free tests" — hara
   final VoidCallback onTap;
+  final bool examOver;
+  final String? tag; // 'trending' | 'new'
 
   const ProductCard({
     super.key,
@@ -206,6 +217,8 @@ class ProductCard extends StatelessWidget {
     required this.fallbackIcon,
     required this.onTap,
     this.highlight,
+    this.examOver = false,
+    this.tag,
   });
 
   @override
@@ -220,7 +233,17 @@ class ProductCard extends StatelessWidget {
     Widget fallback() => Container(
         color: t.chip, child: Icon(fallbackIcon, color: t.muted, size: 30));
 
-    return AppCard(
+    final lockedOver = examOver && !owned;
+    // Poster par chhoti patti: Exam Over > Trending > NEW
+    final (String, Color)? ribbon = examOver
+        ? ('Exam Over', const Color(0xFF6B634F))
+        : tag == 'trending'
+            ? ('🔥 Trending', const Color(0xFFD9822B))
+            : tag == 'new'
+                ? ('NEW', kDGreen)
+                : null;
+
+    final card = AppCard(
       padding: const EdgeInsets.all(10),
       onTap: onTap,
       child: Row(
@@ -231,14 +254,38 @@ class ProductCard extends StatelessWidget {
             child: SizedBox(
               width: 96,
               height: 96,
-              child: img.isEmpty
-                  ? fallback()
-                  : Container(
-                      color: t.chip,
-                      child: Image.network(img,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, __, ___) => fallback()),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  img.isEmpty
+                      ? fallback()
+                      : Container(
+                          color: t.chip,
+                          child: Image.network(img,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => fallback()),
+                        ),
+                  if (ribbon != null)
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: ribbon.$2,
+                          borderRadius: const BorderRadius.only(
+                              bottomRight: Radius.circular(8)),
+                        ),
+                        child: Text(ribbon.$1,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w800)),
+                      ),
                     ),
+                ],
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -284,6 +331,17 @@ class ProductCard extends StatelessWidget {
                     children: [
                       if (owned)
                         const Tag('ENROLLED', color: kDGreen)
+                      else if (lockedOver)
+                        // Exam ho chuka — naya enroll / khareed band
+                        Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.lock_rounded, size: 15, color: t.muted),
+                          const SizedBox(width: 5),
+                          Text('Exam Over',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                  color: t.muted)),
+                        ])
                       else if (free)
                         const Text('FREE',
                             style: TextStyle(
@@ -329,6 +387,7 @@ class ProductCard extends StatelessWidget {
         ],
       ),
     );
+    return examOver ? Opacity(opacity: 0.72, child: card) : card;
   }
 }
 

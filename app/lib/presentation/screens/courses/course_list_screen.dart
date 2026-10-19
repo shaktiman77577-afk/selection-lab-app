@@ -130,6 +130,8 @@ class _CourseListScreenState extends State<CourseListScreen> {
                     price: _num(c['price']),
                     original: _num(c['original_price']),
                     owned: _mine.contains('${c['id']}'),
+                    examOver: c['exam_over'] == true,
+                    tag: cardTag(c),
                     fallbackIcon: Icons.school_rounded,
                     onTap: () => _open(c),
                   ),
