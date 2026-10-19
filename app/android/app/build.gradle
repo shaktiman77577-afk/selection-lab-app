@@ -73,7 +73,11 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            signingConfig signingConfigs.release
+            // key.properties (Play Store wali release key) ho to wahi; warna
+            // (testing wala CI build) fixed debug keystore — wahi SHA1 jo
+            // Firebase/Google login me registered hai.
+            signingConfig keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
+            debuggable false
             minifyEnabled false
             shrinkResources false
         }

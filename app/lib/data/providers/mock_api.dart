@@ -23,9 +23,21 @@ class MockApi {
     return ApiService.get('/mock-tests/series/$seriesId${_uidQ(userId)}');
   }
 
-  /// GET /mock-tests/{id} -> { mock_test, questions:[...], total }  OR 403 { detail }
+  /// GET /mock-tests/{id}?exam=1 -> { mock_test, questions:[...], total }  OR 403 { detail }
+  ///
+  /// SECURITY (Oct 2026): exam=1 — test ke dauraan sahi jawab phone par aate
+  /// hi nahi (pehle poori answer key aa jaati thi, mod use dikha sakta tha).
+  /// Jawab submit ke baad [solutions] se.
   static Future<Map<String, dynamic>> test(int testId, int? userId) {
-    return ApiService.get('/mock-tests/$testId${_uidQ(userId)}');
+    final q = userId != null ? '?user_id=$userId&exam=1' : '?exam=1';
+    return ApiService.get('/mock-tests/$testId$q');
+  }
+
+  /// GET /mock-tests/{id}/solutions -> { solutions:[{id, correct_answer,
+  /// explanation, explanation_hi, explanation_image_url, ...}] }
+  /// Sirf apna test submit karne ke baad milta hai (live test: result ke baad).
+  static Future<Map<String, dynamic>> solutions(int testId, int? userId) {
+    return ApiService.get('/mock-tests/$testId/solutions${_uidQ(userId)}');
   }
 
   /// POST /mock-tests/submit
