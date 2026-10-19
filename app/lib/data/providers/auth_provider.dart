@@ -8,6 +8,18 @@ import '../../core/constants/app_constants.dart';
 import '../../core/network/api_service.dart';
 import 'package:http/http.dart' as http;
 
+/// Account wale API ka jawab (login bina OTP, forgot, merge — Oct 2026).
+class AccountResult {
+  final int status;
+  final Map<String, dynamic> data;
+  AccountResult(this.status, this.data);
+  bool get ok => status >= 200 && status < 300;
+  String get detail {
+    final d = data['detail'];
+    return d is String && d.isNotEmpty ? d : 'Something went wrong. Please try again.';
+  }
+}
+
 class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? _user;
   bool _isLoading = false;
@@ -207,6 +219,8 @@ class AuthProvider extends ChangeNotifier {
 
   String? _verificationId;
   int? _resendToken;
+  // Android ne OTP khud padh liya (Firebase session ban chuka) — tab code nahi chahiye
+  bool _autoVerified = false;
 
   /// OTP bhejta hai. Success par null, warna error message.
   /// [onAutoVerified] tab chalta hai jab Android khud OTP padh leta hai.
@@ -215,6 +229,7 @@ class AuthProvider extends ChangeNotifier {
     void Function()? onAutoVerified,
   }) async {
     _error = null;
+    _autoVerified = false;
     final completer = Completer<String?>();
 
     try {
@@ -226,6 +241,7 @@ class AuthProvider extends ChangeNotifier {
           // Android par OTP apne aap padh liya gaya
           try {
             await fb.FirebaseAuth.instance.signInWithCredential(cred);
+            _autoVerified = true;
             onAutoVerified?.call();
           } catch (_) {}
         },
@@ -251,22 +267,21 @@ class AuthProvider extends ChangeNotifier {
 
   /// OTP check karke backend se login. 'home' | 'profile_setup' | error message.
   Future<String> verifyOtp(String code) async {
-    if (_verificationId == null) return 'Please request a new OTP.';
+    if (_verificationId == null && !_autoVerified) return 'Please request a new OTP.';
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      final cred = fb.PhoneAuthProvider.credential(
-        verificationId: _verificationId!,
-        smsCode: code.trim(),
-      );
-      final res = await fb.FirebaseAuth.instance.signInWithCredential(cred);
-      final token = await res.user?.getIdToken();
-      if (token == null) {
+      final String token;
+      try {
+        token = await otpIdToken(code);
+      } on fb.FirebaseAuthException {
+        rethrow;
+      } catch (e) {
         _isLoading = false;
         notifyListeners();
-        return 'Verification failed. Please try again.';
+        return otpErrorText(e);
       }
 
       final r = await http
@@ -278,10 +293,15 @@ class AuthProvider extends ChangeNotifier {
           .timeout(const Duration(seconds: 20));
 
       if (r.statusCode != 200) {
+        String msg = 'Login failed (${r.statusCode})';
+        try {
+          final d = jsonDecode(r.body)['detail'];
+          if (d is String && d.isNotEmpty) msg = d;
+        } catch (_) {}
         _isLoading = false;
-        _error = 'Login failed (${r.statusCode})';
+        _error = msg;
         notifyListeners();
-        return _error!;
+        return msg;
       }
 
       final data = jsonDecode(r.body);
@@ -339,6 +359,223 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  /// OTP check karke sirf Firebase ka ID token — backend login nahi.
+  /// Forgot password (SMS) aur account merge me saboot ke liye.
+  Future<String> otpIdToken(String code) async {
+    final cur = fb.FirebaseAuth.instance.currentUser;
+    if (_autoVerified && cur != null) {
+      final t = await cur.getIdToken(true);
+      if (t != null) return t;
+    }
+    if (_verificationId == null) throw Exception('Please request a new OTP.');
+    final cred = fb.PhoneAuthProvider.credential(
+      verificationId: _verificationId!,
+      smsCode: code.trim(),
+    );
+    final res = await fb.FirebaseAuth.instance.signInWithCredential(cred);
+    final t = await res.user?.getIdToken();
+    if (t == null) throw Exception('Verification failed. Please try again.');
+    return t;
+  }
+
+  /// Firebase / koi bhi error -> student ke samajhne layak line
+  String otpErrorText(Object e) {
+    if (e is fb.FirebaseAuthException) return _otpError(e.code, e.message);
+    final s = e.toString().replaceFirst('Exception: ', '');
+    return s.isEmpty ? 'Something went wrong. Please try again.' : s;
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  //  LOGIN BINA OTP + ACCOUNT MERGE (Oct 2026) — website jaisa.
+  //  Backend: routers/account.py. Har SMS ~₹5 ka hai, isliye login ab
+  //  mobile/email + password (ya Google) se; OTP sirf naye account, forgot
+  //  password (jab email na ho) aur merge ke saboot ke liye.
+  //  Token har call me AuthClient (main.dart) khud jodta hai.
+  // ══════════════════════════════════════════════════════════════════════
+
+  Future<AccountResult> accountCall(String method, String path,
+      [Map<String, dynamic>? body]) async {
+    try {
+      final uri = Uri.parse('${AppConstants.apiUrl}$path');
+      const headers = {'Content-Type': 'application/json'};
+      final res = method == 'GET'
+          ? await http.get(uri, headers: headers).timeout(const Duration(seconds: 25))
+          : await http
+              .post(uri, headers: headers, body: jsonEncode(body ?? {}))
+              .timeout(const Duration(seconds: 25));
+      Map<String, dynamic> data = {};
+      try {
+        final d = jsonDecode(res.body);
+        if (d is Map<String, dynamic>) data = d;
+      } catch (_) {}
+      if (res.statusCode >= 400 && data['detail'] is! String) {
+        data['detail'] = 'Something went wrong (${res.statusCode}). Please try again.';
+      }
+      return AccountResult(res.statusCode, data);
+    } catch (_) {
+      return AccountResult(0, {'detail': 'Cannot reach server. Please check your internet.'});
+    }
+  }
+
+  Map<String, dynamic> _userFromBackend(Map<String, dynamic> u) {
+    final rawId = u['id'];
+    return {
+      'id': rawId is int ? rawId : int.tryParse('${rawId ?? ''}'),
+      'google_id': u['google_id'],
+      'name': u['name'] ?? 'Student',
+      'email': u['email'] ?? '',
+      'phone': u['phone'] ?? '',
+      'photo_url': u['profile_pic'] ?? '',
+      'nickname': u['nickname'],
+      'city': u['city'],
+      'target_exam': u['target_exam'],
+      'has_membership': u['has_membership'] ?? false,
+      'points': u['points'] ?? 0,
+      'streak_days': u['streak_days'] ?? 0,
+      'profile_completed': u['profile_completed'] ?? false,
+    };
+  }
+
+  /// Login wala jawab (token + user) save karo. 'home' | 'profile_setup'.
+  Future<String> _applyLogin(Map<String, dynamic> data) async {
+    final raw = data['user'];
+    final u = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+    await _saveToken(data['token']);
+    _user = _userFromBackend(u);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConstants.userKey, jsonEncode(_user));
+    await prefs.setInt(_refreshKey, DateTime.now().millisecondsSinceEpoch);
+    notifyListeners();
+    return u['profile_completed'] == true ? 'home' : 'profile_setup';
+  }
+
+  /// Mobile ya email + password. 'home' | 'profile_setup' | 'error' (error me message).
+  Future<String> loginWithPassword(String identifier, String password) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    final r = await accountCall('POST', '/users/login-password', {
+      'identifier': identifier.trim(),
+      'password': password,
+    });
+    _isLoading = false;
+    if (!r.ok) {
+      _error = r.detail;
+      notifyListeners();
+      return 'error';
+    }
+    return _applyLogin(r.data);
+  }
+
+  /// Forgot password: pehle email par code (free), SMS sirf jab zaroori.
+  Future<AccountResult> forgotStart(String identifier, {String? via}) =>
+      accountCall('POST', '/users/forgot/start', {
+        'identifier': identifier.trim(),
+        'via': via,
+      });
+
+  /// Naya password + code (email) ya id_token (SMS). 'home' | 'profile_setup' | error message.
+  Future<String> forgotReset({
+    required String identifier,
+    required String newPassword,
+    String? code,
+    String? idToken,
+  }) async {
+    final r = await accountCall('POST', '/users/forgot/reset', {
+      'identifier': identifier.trim(),
+      'new_password': newPassword,
+      'code': code,
+      'id_token': idToken,
+    });
+    if (!r.ok) return r.detail;
+    return _applyLogin(r.data);
+  }
+
+  static const _refreshKey = 'session_refreshed_at';
+
+  /// Sliding session: din me ek baar naya token (roz aane wala kabhi logout
+  /// nahi hota). 'ok' | 'skip' | 'expired' | 'merged' | 'no_token'.
+  Future<String> refreshSession() async {
+    if (_user == null) return 'skip';
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(AppConstants.tokenKey) ?? '';
+    // Token hi nahi (bahut purana login) — PDF wagairah ab token maangte hain
+    if (token.isEmpty) return 'no_token';
+    final last = prefs.getInt(_refreshKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - last < 20 * 3600 * 1000) return 'skip';
+    final r = await accountCall('POST', '/users/refresh-token');
+    if (r.ok) {
+      await _saveToken(r.data['token']);
+      final raw = r.data['user'];
+      if (raw is Map) {
+        final fresh = _userFromBackend(Map<String, dynamic>.from(raw));
+        // photo khaali aaye to purani rakho
+        if ((fresh['photo_url'] ?? '') == '') fresh.remove('photo_url');
+        _user = {...?_user, ...fresh};
+        await prefs.setString(AppConstants.userKey, jsonEncode(_user));
+        notifyListeners();
+      }
+      await prefs.setInt(_refreshKey, now);
+      return 'ok';
+    }
+    if (r.status == 401) {
+      return r.detail.toLowerCase().contains('merged') ? 'merged' : 'expired';
+    }
+    return 'skip'; // internet / server ki gadbad — kuch mat chhedo
+  }
+
+  Future<AccountResult> accountStatus() => accountCall('GET', '/users/account-status');
+
+  Future<AccountResult> setPassword(String password) =>
+      accountCall('POST', '/users/set-password', {'password': password});
+
+  /// Ye number/email kisi doosre account par to nahi? status: free | mine | other
+  Future<AccountResult> accountCheck({String? phone, String? email}) =>
+      accountCall('POST', '/users/account-check', {'phone': phone, 'email': email});
+
+  /// Merge ka saboot shuru. email -> server code bhejta hai; sms -> hum Firebase se.
+  Future<AccountResult> mergeStart({String? phone, String? email}) =>
+      accountCall('POST', '/users/merge/start', {'phone': phone, 'email': email});
+
+  /// Saboot ke saath merge. Jo account bacha, uska token + user save. null = ho gaya.
+  Future<String?> mergeConfirm(
+      {String? phone, String? email, String? idToken, String? code}) async {
+    final r = await accountCall('POST', '/users/merge/confirm', {
+      'phone': phone,
+      'email': email,
+      'id_token': idToken,
+      'code': code,
+    });
+    if (!r.ok) return r.detail;
+    await _applyLogin(r.data);
+    return null;
+  }
+
+  /// Naya number/email is account par jodo (jab kisi aur ka na ho). null = ho gaya.
+  Future<String?> addContact({String? phone, String? email}) async {
+    final u = _user;
+    if (u == null || u['id'] == null) return 'Please sign in again';
+    final r = await accountCall('POST', '/users/complete-profile', {
+      'user_id': u['id'],
+      'name': u['name'] ?? 'Student',
+      'phone': phone,
+      'email': email,
+    });
+    if (!r.ok) return r.detail;
+    final raw = r.data['user'];
+    _user = {
+      ...u,
+      if (phone != null) 'phone': phone,
+      if (email != null) 'email': email,
+      if (raw is Map) ..._userFromBackend(Map<String, dynamic>.from(raw)),
+    };
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConstants.userKey, jsonEncode(_user));
+    notifyListeners();
+    return null;
+  }
+
   Future<bool> register(String name, String phone, String password, {String? referralCode}) async {
     _isLoading = true;
     _error = null;
@@ -378,6 +615,7 @@ class AuthProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConstants.tokenKey);
     await prefs.remove(AppConstants.userKey);
+    await prefs.remove(_refreshKey);
     try {
       await _googleSignIn.signOut();
     } catch (_) {}

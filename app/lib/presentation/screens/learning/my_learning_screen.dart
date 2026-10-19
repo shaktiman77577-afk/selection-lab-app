@@ -5,6 +5,10 @@
 //
 // Redesign (Sep 2026): clean look, filter (All / Courses / Mock / Descriptive),
 // chhote cards. Ye ab bottom tab hai, isliye back button nahi.
+//
+// Oct 2026 (website jaisa): Typing / Skill Test ki kharidi bhi dikhti hai
+// (pehle sirf typing kharidne wale ko "Nothing here yet" dikhta tha), aur
+// "Purchase missing?" — doosre login (Google vs mobile) wala account milao.
 
 import 'dart:convert';
 
@@ -14,6 +18,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/widgets/account_gate.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../courses/course_detail_screen.dart';
@@ -21,6 +26,7 @@ import '../descriptive/descriptive_series_detail_screen.dart';
 import '../descriptive/descriptive_theme.dart';
 import '../mock/mock_review_screen.dart';
 import '../mock/mock_series_detail_screen.dart';
+import '../web/site_web_screen.dart';
 
 class MyLearningScreen extends StatefulWidget {
   const MyLearningScreen({super.key});
@@ -30,7 +36,7 @@ class MyLearningScreen extends StatefulWidget {
 }
 
 class _Item {
-  final String kind; // 'course' | 'mock' | 'descriptive'
+  final String kind; // 'course' | 'mock' | 'descriptive' | 'typing'
   final Map<String, dynamic> data;
   _Item(this.kind, this.data);
 }
@@ -40,7 +46,7 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
   List<Map<String, dynamic>> _liveResults = [];
   bool _loading = true;
   int? _userId;
-  int _filter = 0; // 0 All, 1 Courses, 2 Mock, 3 Descriptive
+  int _filter = 0; // 0 All, 1 Courses, 2 Mock, 3 Descriptive, 4 Typing
 
   @override
   void initState() {
@@ -79,6 +85,7 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
       _get('/mock-tests/series?user_id=$uid'),
       _get('/descriptive/series?platform=app&user_id=$uid'),
       _get('/mock-tests/my-live-results?user_id=$uid'),
+      _get('/tier2/series?platform=app&user_id=$uid'),
     ]);
     if (!mounted) return;
     setState(() {
@@ -90,6 +97,9 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
         ..._list(r[2], 'series')
             .where((s) => s['is_purchased'] == true)
             .map((s) => _Item('descriptive', s)),
+        ..._list(r[4], 'series')
+            .where((s) => s['is_purchased'] == true)
+            .map((s) => _Item('typing', s)),
       ];
       _liveResults = _list(r[3], 'results');
       _loading = false;
@@ -109,6 +119,10 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
       case 'descriptive':
         if (id == null) return;
         screen = DescriptiveSeriesDetailScreen(seriesId: id);
+        break;
+      case 'typing':
+        // Typing / Excel simulator website ke WebView me (app me login ke saath)
+        screen = SiteWebScreen(path: id == null ? '/tier2' : '/tier2?s=$id');
         break;
       default:
         screen = CourseDetailScreen(course: item.data);
@@ -148,7 +162,7 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
   }
 
   List<_Item> get _shown {
-    const kinds = ['', 'course', 'mock', 'descriptive'];
+    const kinds = ['', 'course', 'mock', 'descriptive', 'typing'];
     if (_filter == 0) return _items;
     return _items.where((i) => i.kind == kinds[_filter]).toList();
   }
@@ -179,7 +193,7 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
                 child: EmptyState(
                   icon: Icons.school_outlined,
                   text:
-                      'Nothing here yet.\nCourses, mock series and descriptive series you enroll in will appear here.',
+                      'Nothing here yet.\nCourses, mock series, descriptive and typing series you enroll in will appear here.',
                 ),
               )
             else ...[
@@ -195,7 +209,13 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
               if (_items.isNotEmpty) ...[
                 const SectionHeader('Enrolled'),
                 FilterChips(
-                  options: const ['All', 'Courses', 'Mock tests', 'Descriptive'],
+                  options: const [
+                    'All',
+                    'Courses',
+                    'Mock tests',
+                    'Descriptive',
+                    'Typing / Skill'
+                  ],
                   selected: _filter,
                   onChanged: (i) => setState(() => _filter = i),
                 ),
@@ -215,8 +235,65 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
                     ),
               ],
             ],
+            if (!_loading)
+              Padding(
+                padding: EdgeInsets.fromLTRB(16, nothing ? 8 : 18, 16, 0),
+                child: _purchaseMissing(t),
+              ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Doosre login se kharida? (Google vs mobile) — wahi merge flow
+  Widget _purchaseMissing(DT t) {
+    return AppCard(
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+                color: t.primary.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.person_search_rounded, size: 20, color: t.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Purchase missing?',
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: t.text)),
+                const SizedBox(height: 3),
+                Text(
+                    'If you bought it with a different login (for example Google instead of your '
+                    'mobile number), link that account here. Everything moves into one account.',
+                    style: TextStyle(fontSize: 12.5, color: t.muted, height: 1.45)),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: () => AccountGate.openLink(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF8A5A00),
+                    side: const BorderSide(color: Color(0xFFFFAB00)),
+                    visualDensity: VisualDensity.compact,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(9)),
+                  ),
+                  child: const Text('Link my other account',
+                      style:
+                          TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -280,6 +357,7 @@ class _MyLearningScreenState extends State<MyLearningScreen> {
     final (String label, Color color, IconData icon) = switch (item.kind) {
       'mock' => ('MOCK SERIES', const Color(0xFF2C6FD1), Icons.assignment_rounded),
       'descriptive' => ('DESCRIPTIVE', const Color(0xFF7B4FD0), Icons.edit_note_rounded),
+      'typing' => ('TYPING / SKILL TEST', const Color(0xFF0E9384), Icons.keyboard_rounded),
       _ => ('COURSE', const Color(0xFFD9822B), Icons.school_rounded),
     };
 

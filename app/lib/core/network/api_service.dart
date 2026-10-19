@@ -18,7 +18,7 @@ class ApiService {
     return {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
-      if (token != null) 'Authorization': 'Bearer \$token',
+      if (token != null) 'Authorization': 'Bearer $token',
     };
   }
 
@@ -26,14 +26,14 @@ class ApiService {
     try {
       final headers = await getHeaders();
       final uri = Uri.parse("${AppConstants.apiUrl}$endpoint");
-      debugPrint('GET: \$uri');
+      debugPrint('GET: $uri');
       final res = await http.get(uri, headers: headers).timeout(_timeout);
-      debugPrint('Response \${res.statusCode}: \${res.body}');
+      debugPrint('Response ${res.statusCode}: ${res.body}');
       return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException {
       return {'error': 'No internet connection'};
     } catch (e) {
-      debugPrint('GET error: \$e');
+      debugPrint('GET error: $e');
       return {'error': e.toString()};
     }
   }
@@ -42,15 +42,15 @@ class ApiService {
     try {
       final headers = await getHeaders();
       final uri = Uri.parse("${AppConstants.apiUrl}$endpoint");
-      debugPrint('POST: \$uri');
-      debugPrint('Body: \${jsonEncode(body)}');
+      debugPrint('POST: $uri');
+      debugPrint('Body: ${jsonEncode(body)}');
       final res = await http.post(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
-      debugPrint('Response \${res.statusCode}: \${res.body}');
+      debugPrint('Response ${res.statusCode}: ${res.body}');
       return jsonDecode(res.body) as Map<String, dynamic>;
     } on SocketException {
       return {'error': 'No internet connection'};
     } catch (e) {
-      debugPrint('POST error: \$e');
+      debugPrint('POST error: $e');
       return {'error': e.toString()};
     }
   }

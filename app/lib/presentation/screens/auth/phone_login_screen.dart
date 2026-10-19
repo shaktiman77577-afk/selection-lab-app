@@ -1,4 +1,7 @@
-// Phone OTP login — website ke login page jaisa hi.
+// Phone OTP — ab sirf NAYA account banane ke liye (Oct 2026, har SMS ~₹5).
+// Purane students password se login karte hain (login screen). Jinhone kabhi
+// password nahi rakha, wo ek baar yahan se aate hain — andar "Set your
+// password" popup aata hai, phir agli baar bina OTP.
 //
 // Do step: number daalo -> OTP daalo. Firebase OTP verify karta hai, phir
 // backend /users/login-phone se asli user aata hai. Purane accounts bhi mil
@@ -160,7 +163,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: text),
-        title: Text('Login with mobile',
+        title: Text('Create account',
             style: TextStyle(
                 color: text, fontSize: 17, fontWeight: FontWeight.w800)),
       ),
@@ -182,6 +185,22 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
                     : 'We will send you a one-time password to verify it.',
                 style: TextStyle(color: muted, fontSize: 13.5, height: 1.5),
               ),
+              if (!_sent) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _gold.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Already registered but never set a password? Use this once — '
+                    "you'll be asked to set a password, and next time you can sign in without OTP.",
+                    style: TextStyle(color: text, fontSize: 12.5, height: 1.5),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               if (!_sent) ...[

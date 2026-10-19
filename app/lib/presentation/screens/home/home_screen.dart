@@ -19,6 +19,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/shop.dart';
+import '../../../core/widgets/account_gate.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/app_config_provider.dart';
@@ -49,6 +50,16 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Login bina OTP: din me ek baar naya token + ek baar "account update"
+    // popup (password set / email / number / merge). Dekho account_gate.dart
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AccountGate.run(context, onToggleTheme: widget.onToggleTheme);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -115,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── DASHBOARD ───────────────────────────────────────────────────────────────
+// ── DASHBOARD ──────────────────────────────────────────────────────────────────────────
 
 class DashboardTab extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -299,7 +310,7 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  // ── BUILD ────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final t = dtOf(context);

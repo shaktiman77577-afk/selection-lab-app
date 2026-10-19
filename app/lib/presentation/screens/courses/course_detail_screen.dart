@@ -8,6 +8,8 @@
 // - Bundle course me "Included in this bundle" — website jaisa.
 // - Nakli "4.8 rating" hata di — backend deta hi nahi.
 // - Purchase band (admin switch) ho to price/Buy/coupon nahi, sirf lock.
+// - Oct 2026 (website jaisa): description ka **bold** / ### / - list format
+//   hokar dikhta hai (RichDesc), aur "Exam Over" course naya nahi bikta.
 
 import 'dart:convert';
 
@@ -19,6 +21,7 @@ import 'package:provider/provider.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/shop.dart';
 import '../../../core/utils/share_helper.dart';
+import '../../../core/widgets/rich_desc.dart';
 import '../../../core/widgets/ui.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../checkout/checkout_screen.dart';
@@ -146,6 +149,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
 
   Future<void> _buyCourse() async {
     if (!context.shopOnRead) return; // purchase band hai
+    if (course['exam_over'] == true) return; // exam ho chuka — naya khareed band
     if (_uid == null) {
       _snack('Please log out and log in again to purchase.');
       return;
@@ -278,7 +282,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       .where((c) => c['content_type'] == 'pdf' || c['content_type'] == 'file')
       .length;
 
-  // ── BUILD ──────────────────────────────────────────────────────────────────
+  // ── BUILD ──────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final t = dtOf(context);
@@ -405,8 +409,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
   }
 
   Widget _bottomBar(DT t) {
+    // Exam ho chuka: naya enroll / khareed band (jinke paas hai unka chalta rahega)
+    final examOver = course['exam_over'] == true && !_owned;
     // Purchase band: khareeda nahi to price/Buy ki jagah sirf lock
-    if (!_owned && !context.shopOn) {
+    if (examOver || (!_owned && !context.shopOn)) {
       return Container(
         decoration: BoxDecoration(
           color: t.card,
@@ -428,7 +434,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
                 children: [
                   Icon(Icons.lock_rounded, size: 17, color: t.muted),
                   const SizedBox(width: 8),
-                  Text('Not available in the app yet',
+                  Text(
+                      examOver
+                          ? 'Exam over — no longer available'
+                          : 'Not available in the app yet',
                       style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -513,8 +522,8 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    final desc = '${course['description'] ?? ''}';
-    final isLong = desc.length > 180;
+    final desc = '${course['description'] ?? ''}'.trim();
+    final isLong = desc.length > 260 || '\n'.allMatches(desc).length > 6;
 
     Widget heading(String s) => Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -528,8 +537,34 @@ class _CourseDetailScreenState extends State<CourseDetailScreen>
       children: [
         if (desc.isNotEmpty) ...[
           heading('About this course'),
-          Text(_descExpanded || !isLong ? desc : '${desc.substring(0, 180)}…',
-              style: TextStyle(fontSize: 14, height: 1.6, color: t.text2)),
+          // **bold**, ### heading, - list ab format hokar (RichDesc)
+          if (_descExpanded || !isLong)
+            RichDesc(
+                text: desc, color: t.text2, strong: t.text, accent: kDGold)
+          else
+            ShaderMask(
+              // Neeche halka fade — "Read more" se pehle
+              shaderCallback: (r) => const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.white, Colors.white, Colors.transparent],
+                stops: [0, 0.7, 1],
+              ).createShader(r),
+              blendMode: BlendMode.dstIn,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 170),
+                child: ClipRect(
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
+                    child: RichDesc(
+                        text: desc,
+                        color: t.text2,
+                        strong: t.text,
+                        accent: kDGold),
+                  ),
+                ),
+              ),
+            ),
           if (isLong)
             GestureDetector(
               onTap: () => setState(() => _descExpanded = !_descExpanded),

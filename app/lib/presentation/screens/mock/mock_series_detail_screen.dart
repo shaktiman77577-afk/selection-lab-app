@@ -93,6 +93,10 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
       _snack(kNotInAppMsg); // purchase band hai
       return;
     }
+    if (_series?['exam_over'] == true) {
+      _snack('This exam is over, so this series is no longer available.');
+      return;
+    }
     if (_uid == null) {
       _snack('Please log in to continue.');
       return;
@@ -230,7 +234,10 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
                       else
                         ..._tests.asMap().entries.map(
                             (e) => _testRow(e.key + 1, e.value, t)),
-                      if (!_purchased && _price > 0 && context.shopOn) ...[
+                      if (!_purchased &&
+                          _price > 0 &&
+                          context.shopOn &&
+                          _series?['exam_over'] != true) ...[
                         const SizedBox(height: 20),
                         Center(
                           child: GoldButton(
@@ -292,15 +299,17 @@ class _MockSeriesDetailScreenState extends State<MockSeriesDetailScreen> {
     if (_purchased) {
       return _pill('✓ Full access');
     }
-    if (_price > 0 && !context.shopOn) {
+    // Exam ho chuka (Oct 2026, website jaisa): naya khareed band
+    final examOver = _series?['exam_over'] == true;
+    if (examOver || (_price > 0 && !context.shopOn)) {
       // Purchase band: price/Buy nahi
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
             borderRadius: BorderRadius.circular(10)),
-        child: const Text('🔒 Locked in the app',
-            style: TextStyle(
+        child: Text(examOver ? '🔒 Exam over — not available' : '🔒 Locked in the app',
+            style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
                 fontSize: 13)),

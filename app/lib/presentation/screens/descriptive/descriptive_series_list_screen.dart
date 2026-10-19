@@ -132,6 +132,8 @@ class _DescriptiveSeriesListScreenState
                     price: _num(s['price']),
                     original: _num(s['original_price']),
                     owned: s['is_purchased'] == true,
+                    examOver: s['exam_over'] == true,
+                    tag: cardTag(s),
                     fallbackIcon: Icons.edit_note_rounded,
                     onTap: () => _open(s),
                   ),
