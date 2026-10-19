@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/secure_screen.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/mock_api.dart';
 import '../descriptive/descriptive_theme.dart';
@@ -48,12 +49,14 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enter(); // test ke dauraan screenshot / recording band
     _load();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    SecureScreen.exit();
     super.dispose();
   }
 
@@ -291,14 +294,21 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
         questionTimes: _qTimes.map((k, v) => MapEntry(k.toString(), v)),
       );
       if (!mounted) return;
+      if (res['error'] != null || (res['detail'] != null && res['score'] == null && res['pending'] != true)) {
+        throw Exception('${res['detail'] ?? res['error']}');
+      }
+      // Sahi jawab ab submit ke BAAD server se (test ke dauraan phone par nahi)
+      final solved = await _withSolutions(uid, res['pending'] == true);
+      if (!mounted) return;
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
           builder: (_) => MockResultScreen(
             title: widget.title,
             result: res,
-            questions: _questions,
+            questions: solved ?? _questions,
             answers: Map<int, String>.from(_answers),
+            solutionsReady: solved != null,
           ),
         ),
       );
@@ -308,6 +318,34 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
         _submitting = false;
         _error = 'Submit failed. Check your connection and try again.';
       });
+    }
+  }
+
+  /// Questions + unke sahi jawab / explanation (/solutions se). Na mile
+  /// (live test ka result abhi nahi, ya network) to null.
+  Future<List<Map<String, dynamic>>?> _withSolutions(int? uid, bool pending) async {
+    if (pending) return null;
+    try {
+      final res = await MockApi.solutions(widget.testId, uid);
+      final list = res['solutions'];
+      if (list is! List || list.isEmpty) return null;
+      final byId = <String, Map>{};
+      for (final s in list) {
+        if (s is Map) byId['${s['id']}'] = s;
+      }
+      return _questions.map((q) {
+        final s = byId['${q['id']}'];
+        if (s == null) return q;
+        return {
+          ...q,
+          'correct_answer': s['correct_answer'],
+          'explanation': s['explanation'],
+          'explanation_hi': s['explanation_hi'],
+          'explanation_image_url': s['explanation_image_url'],
+        };
+      }).toList();
+    } catch (_) {
+      return null;
     }
   }
 

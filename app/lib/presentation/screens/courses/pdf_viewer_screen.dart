@@ -23,6 +23,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/secure_screen.dart';
 import '../../../core/theme/app_theme.dart';
 
 class PdfViewerScreen extends StatefulWidget {
@@ -59,8 +60,15 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
   bool get _secure => widget.contentId != null;
 
   @override
+  void dispose() {
+    SecureScreen.exit();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
+    SecureScreen.enter(); // PDF — screenshot / screen recording band
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0A0A0A))

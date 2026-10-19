@@ -4,6 +4,7 @@
 // plus per-question solutions (your answer vs correct + explanation).
 
 import 'package:flutter/material.dart';
+import '../../../core/secure_screen.dart';
 import '../descriptive/descriptive_theme.dart';
 
 class MockResultScreen extends StatelessWidget {
@@ -12,12 +13,17 @@ class MockResultScreen extends StatelessWidget {
   final List<Map<String, dynamic>> questions;
   final Map<int, String> answers;
 
+  /// false = sahi jawab server se nahi mile (live test ka result abhi nahi,
+  /// ya network). Tab solutions ki jagah sandesh dikhta hai.
+  final bool solutionsReady;
+
   const MockResultScreen({
     super.key,
     required this.title,
     required this.result,
     required this.questions,
     required this.answers,
+    this.solutionsReady = true,
   });
 
   double _d(dynamic v) =>
@@ -38,7 +44,7 @@ class MockResultScreen extends StatelessWidget {
     final passed = result['passed'] == true;
     final pct = totalMarks > 0 ? (score / totalMarks) : 0.0;
 
-    return Scaffold(
+    return SecureArea(child: Scaffold(
       backgroundColor: t.bg,
       appBar: AppBar(
         backgroundColor: t.bg,
@@ -154,10 +160,24 @@ class MockResultScreen extends StatelessWidget {
               style: TextStyle(
                   fontSize: 18, fontWeight: FontWeight.w800, color: t.text)),
           const SizedBox(height: 12),
-          ...questions.asMap().entries.map((e) => _solution(e.key + 1, e.value, t)),
+          if (solutionsReady)
+            ...questions.asMap().entries.map((e) => _solution(e.key + 1, e.value, t))
+          else
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                  color: t.card,
+                  border: Border.all(color: t.line),
+                  borderRadius: BorderRadius.circular(14)),
+              child: Text(
+                  result['pending'] == true
+                      ? 'Solutions will be available after the live test results are published.'
+                      : 'Solutions could not be loaded right now. Open this test again from the series page and tap "Solution".',
+                  style: TextStyle(fontSize: 13.5, height: 1.5, color: t.text2)),
+            ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _stat(DT t, String label, String value, Color color) {
