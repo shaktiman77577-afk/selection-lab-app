@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/secure_screen.dart';
 import '../descriptive/descriptive_theme.dart';
 
 class MockReviewScreen extends StatefulWidget {
@@ -55,7 +56,14 @@ class _MockReviewScreenState extends State<MockReviewScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enter(); // solutions — screenshot band
     _load();
+  }
+
+  @override
+  void dispose() {
+    SecureScreen.exit();
+    super.dispose();
   }
 
   String get _base => AppConstants.apiUrl;

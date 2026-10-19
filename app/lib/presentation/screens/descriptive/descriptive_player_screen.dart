@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../../../core/secure_screen.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
 import 'descriptive_theme.dart';
@@ -44,11 +45,13 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
   @override
   void initState() {
     super.initState();
+    SecureScreen.enter(); // paid questions — screenshot band
     _load();
   }
 
   @override
   void dispose() {
+    SecureScreen.exit();
     _timer?.cancel();
     for (final c in _controllers.values) {
       c.dispose();
