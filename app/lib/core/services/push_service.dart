@@ -9,6 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_constants.dart';
 import '../navigation/nav_key.dart';
 import '../network/api_service.dart';
 import '../../presentation/screens/courses/course_detail_screen.dart';
@@ -67,6 +69,10 @@ class PushService {
     // Every install joins the broadcast topic — no device-token DB needed.
     await messaging.subscribeToTopic('all_users');
 
+    // Khareede hue courses ke topic ("course_<id>") — naya video/PDF aane par
+    // sirf kharidne walon ko notification (backend: course_content_admin.py).
+    syncCourseTopics();
+
     // Foreground: FCM does not auto-show a banner, so we show one ourselves.
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
       final notification = message.notification;
@@ -98,6 +104,42 @@ class PushService {
       Future.delayed(const Duration(milliseconds: 800), () {
         _handleNavigation(initialMessage.data);
       });
+    }
+  }
+
+  static const String _kTopicsKey = 'push_course_topics';
+
+  /// Login user ke courses ke topic subscribe, aur jo ab uske nahi (logout /
+  /// expire) unse unsubscribe. App khulte hi chalta hai; kabhi crash nahi karta.
+  static Future<void> syncCourseTopics() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final old = (prefs.getStringList(_kTopicsKey) ?? []).toSet();
+      final want = <String>{};
+
+      final raw = prefs.getString(AppConstants.userKey);
+      final uid = raw == null ? null : (jsonDecode(raw) as Map)['id'];
+      if (uid != null) {
+        final res = await ApiService.get('/courses/my/$uid');
+        if (res['error'] != null) return; // net nahi — purane topic waise hi rehne do
+        final list = res['courses'];
+        if (list is List) {
+          for (final c in list) {
+            if (c is Map && c['id'] != null) want.add('course_${c['id']}');
+          }
+        }
+      }
+
+      final messaging = FirebaseMessaging.instance;
+      for (final t in want.difference(old)) {
+        await messaging.subscribeToTopic(t);
+      }
+      for (final t in old.difference(want)) {
+        await messaging.unsubscribeFromTopic(t);
+      }
+      await prefs.setStringList(_kTopicsKey, want.toList());
+    } catch (e) {
+      debugPrint('syncCourseTopics: $e');
     }
   }
 
