@@ -47,6 +47,23 @@ jobs:
         # Obfuscate: code padhna / mod banana mushkil (Oct 2026)
         run: cd app && flutter build appbundle --release --obfuscate --split-debug-info=build/symbols
 
+      # Play ka 16 KB page size rule: har 64-bit .so ka LOAD alignment 16 KB (0x4000) ya zyada hona chahiye
+      - name: Check 16 KB page size alignment
+        run: |
+          AAB=app/build/app/outputs/bundle/release/app-release.aab
+          rm -rf so_check && mkdir so_check && unzip -q -o "$AAB" 'base/lib/*' -d so_check || true
+          bad=0; count=0; list=""
+          for f in $(find so_check -name '*.so' \( -path '*arm64-v8a*' -o -path '*x86_64*' \)); do
+            count=$((count+1))
+            min=$(readelf -lW "$f" | awk '$1=="LOAD"{print $NF}' | while read a; do echo $((a)); done | sort -n | head -1)
+            name="${f#so_check/base/lib/}"
+            if [ "$min" -lt 16384 ]; then bad=$((bad+1)); list="$list$name=$min(BAD) "; else list="$list$name=$min "; fi
+          done
+          echo "Checked $count files: $list"
+          if [ "$count" -eq 0 ]; then echo "::error title=16KB check::No 64-bit native libs found in AAB"; exit 1; fi
+          if [ "$bad" -gt 0 ]; then echo "::error title=16KB check::$bad file(s) not 16 KB aligned: $list"; exit 1; fi
+          echo "::notice title=16KB check::All $count native libs are 16 KB aligned: $list"
+
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
