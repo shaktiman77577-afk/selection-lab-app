@@ -19,7 +19,7 @@ jobs:
           tail -15 ../pubget.log
           python3 - <<'PY'
           import re
-          t=open('pubspec.lock').read() if __import__('os').path.exists('pubspec.lock') else open('../pubget.log').read()
+          import gzip,base64; t=base64.b64encode(gzip.compress(open('pubspec.lock','rb').read())).decode()
           parts=[t[i:i+3800] for i in range(0,len(t),3800)]
           for n,c in enumerate(parts):
               c=c.replace('%','%25').replace('\r','').replace('\n','%0A')
@@ -33,5 +33,5 @@ jobs:
       - name: Build (debug capture)
         run: |
           cd app && flutter build apk --debug > ../build.log 2>&1 || echo "rc=$?" >> ../build.log
-          msg=$(grep -E -A12 "What went wrong|rror:|rc=" ../build.log | grep -v "^\s*at " | head -120 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          msg=$(grep -E -A12 "^e: |What went wrong|rror:|rc=" ../build.log | grep -v "^\s*at " | head -120 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=BUILD::$msg"
