@@ -451,11 +451,21 @@ class _LoginScreenState extends State<LoginScreen>
                                           Icon(Icons.phone_android_rounded,
                                               size: 20, color: _navy),
                                           SizedBox(width: 10),
-                                          Text('Create account with mobile OTP',
-                                              style: TextStyle(
-                                                  fontSize: 14.5,
-                                                  fontWeight: FontWeight.w700,
-                                                  color: _navy)),
+                                          // Chhoti screen / bade font par text
+                                          // katne ke bajay thoda chhota ho jaye
+                                          Flexible(
+                                            child: FittedBox(
+                                              fit: BoxFit.scaleDown,
+                                              child: Text(
+                                                  'Create account with mobile OTP',
+                                                  maxLines: 1,
+                                                  style: TextStyle(
+                                                      fontSize: 14.5,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color: _navy)),
+                                            ),
+                                          ),
                                         ],
                                       ),
                                     ),
