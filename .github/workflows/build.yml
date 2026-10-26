@@ -32,6 +32,7 @@ jobs:
           echo "::error title=ICONS::$msg"
       - name: Build (debug capture)
         run: |
-          cd app && flutter build apk --debug > ../build.log 2>&1 || echo "rc=$?" >> ../build.log
-          msg=$(grep -E -A12 "^e: |What went wrong|rror:|rc=" ../build.log | grep -v "^\s*at " | head -120 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          (cd app && flutter build apk --debug > ../first.log 2>&1 || true)
+          cd app/android && chmod +x gradlew && ./gradlew assembleDebug --continue > ../../build.log 2>&1 || echo "rc=$?" >> ../../build.log; cd ../..
+          msg=$(grep -E "^e: |error:|Execution failed for task|rc=" build.log | sed "s#/home/runner/.pub-cache/hosted/pub.dev/##" | cut -c1-260 | head -60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=BUILD::$msg"
