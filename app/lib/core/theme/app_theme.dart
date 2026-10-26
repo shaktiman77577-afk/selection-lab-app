@@ -86,7 +86,7 @@ class AppTheme {
             ?.copyWith(fontSize: 17, fontWeight: FontWeight.w700, color: text),
         shape: Border(bottom: BorderSide(color: line)),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: card,
         elevation: 0,
         margin: EdgeInsets.zero,
@@ -154,7 +154,7 @@ class AppTheme {
         shape: const RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: card,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

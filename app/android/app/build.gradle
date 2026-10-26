@@ -32,7 +32,7 @@ android {
 
     namespace "com.selectionlab"
     compileSdk 36
-    ndkVersion "27.0.12077973"
+    ndkVersion flutter.ndkVersion   // Flutter 3.38 = NDK r28 (16 KB page size ready)
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
