@@ -12,12 +12,12 @@ jobs:
       - run: cd app && flutter pub get 2>&1 | tee ../pubget.log
       - name: Icons (debug capture)
         run: |
-          cd app && dart run flutter_launcher_icons > ../icons.log 2>&1; echo "rc=$?" >> ../icons.log
+          cd app && dart run flutter_launcher_icons > ../icons.log 2>&1 || echo "rc=$?" >> ../icons.log
           msg=$(tail -40 ../icons.log | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=ICONS::$msg"
       - name: Build (debug capture)
         run: |
-          cd app && flutter build apk --debug > ../build.log 2>&1; echo "rc=$?" >> ../build.log
+          cd app && flutter build apk --debug > ../build.log 2>&1 || echo "rc=$?" >> ../build.log
           msg=$(grep -E "rror|xception|FAILURE|What went wrong|rc=" ../build.log | head -60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=BUILD::$msg"
           msg2=$(grep -E "^\+? *[a-z_]+ [0-9]+\.[0-9]+" ../pubget.log | head -0)
