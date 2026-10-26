@@ -16,7 +16,7 @@ jobs:
       - name: Fresh resolve
         run: |
           cd app && rm -f pubspec.lock && flutter pub get > ../pubget.log 2>&1 || echo "rc=$?" >> ../pubget.log
-          tail -15 ../pubget.log
+          msg=$(tail -25 ../pubget.log | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}'); echo "::error title=PUBGET::$msg"
           python3 - <<'PY'
           import re
           import gzip,base64; t=base64.b64encode(gzip.compress(open('pubspec.lock','rb').read())).decode()
