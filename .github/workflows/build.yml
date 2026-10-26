@@ -9,7 +9,22 @@ jobs:
         with:
           flutter-version: '3.38.9'
           channel: 'stable'
-      - run: cd app && flutter pub get 2>&1 | tee ../pubget.log
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Fresh resolve
+        run: |
+          cd app && rm -f pubspec.lock && flutter pub get > ../pubget.log 2>&1 || echo "rc=$?" >> ../pubget.log
+          tail -15 ../pubget.log
+          python3 - <<'PY'
+          import re
+          t=open('pubspec.lock').read() if __import__('os').path.exists('pubspec.lock') else open('../pubget.log').read()
+          parts=[t[i:i+30000] for i in range(0,len(t),30000)]
+          for n,c in enumerate(parts):
+              c=c.replace('%','%25').replace('\r','').replace('\n','%0A')
+              print(f"::warning title=LOCK{n}::{c}")
+          PY
       - name: Icons (debug capture)
         run: |
           cd app && dart run flutter_launcher_icons > ../icons.log 2>&1 || echo "rc=$?" >> ../icons.log
@@ -18,6 +33,5 @@ jobs:
       - name: Build (debug capture)
         run: |
           cd app && flutter build apk --debug > ../build.log 2>&1 || echo "rc=$?" >> ../build.log
-          msg=$(grep -E "rror|xception|FAILURE|What went wrong|rc=" ../build.log | head -60 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          msg=$(grep -E -A12 "What went wrong|rror:|rc=" ../build.log | grep -v "^\s*at " | head -120 | sed -e 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
           echo "::error title=BUILD::$msg"
-          msg2=$(grep -E "^\+? *[a-z_]+ [0-9]+\.[0-9]+" ../pubget.log | head -0)
