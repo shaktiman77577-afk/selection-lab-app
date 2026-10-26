@@ -20,7 +20,7 @@ jobs:
           python3 - <<'PY'
           import re
           t=open('pubspec.lock').read() if __import__('os').path.exists('pubspec.lock') else open('../pubget.log').read()
-          parts=[t[i:i+30000] for i in range(0,len(t),30000)]
+          parts=[t[i:i+3800] for i in range(0,len(t),3800)]
           for n,c in enumerate(parts):
               c=c.replace('%','%25').replace('\r','').replace('\n','%0A')
               print(f"::warning title=LOCK{n}::{c}")
