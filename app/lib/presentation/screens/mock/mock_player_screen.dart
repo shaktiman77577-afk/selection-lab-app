@@ -23,9 +23,11 @@ class MockPlayerScreen extends StatefulWidget {
   State<MockPlayerScreen> createState() => _MockPlayerScreenState();
 }
 
-class _MockPlayerScreenState extends State<MockPlayerScreen> {
+class _MockPlayerScreenState extends State<MockPlayerScreen>
+    with WidgetsBindingObserver {
   bool _loading = true;
   String? _error;
+  bool _loadFailed = false; // network / server wajah se — Retry button dikhta hai
   Map<String, dynamic> _test = {};
   List<Map<String, dynamic>> _questions = [];
   List<String> _sections = [];
@@ -45,19 +47,44 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
   int _secondsLeft = 0;
   int _elapsed = 0;
   bool _submitting = false;
+  bool _done = false; // submit ho gaya — ab kuch save nahi
+  bool _started = false; // resume / start-over chun liya, timer chal gaya
 
   @override
   void initState() {
     super.initState();
     SecureScreen.enter(); // test ke dauraan screenshot / recording band
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     SecureScreen.exit();
     super.dispose();
+  }
+
+  // ── AUTOSAVE (Nov 2026) ──
+  // Pehle progress sirf "Pause" button par save hota tha. Student ne home
+  // dabaya / call aayi / Android ne app band kiya / app kill kiya — wapas aane
+  // par test shuru se. Ab: app background me jaate hi, har answer par, aur har
+  // 5 sec timer ke saath chupchaap save.
+  bool get _canAutosave =>
+      _started && !_loading && !_submitting && !_done && _questions.isNotEmpty;
+
+  void _autosave() {
+    if (_canAutosave) _saveProgress();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _autosave();
+    }
   }
 
   // ── Pause / Resume (save progress locally) ──
@@ -136,10 +163,17 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
     _uidForKey = uid;
     try {
       final res = await MockApi.test(widget.testId, uid);
+      if (!mounted) return;
       if (res['mock_test'] == null || res['questions'] == null) {
+        // Timeout / server down par pehle "locked or unavailable" dikhta tha —
+        // student samajhta tha test hi nahi hai. Ab asli baat + Retry.
+        final serverIssue = res['error'] != null && res['detail'] == null;
         setState(() {
-          _error = (res['detail'] ?? 'This test is locked or unavailable.')
-              .toString();
+          _loadFailed = serverIssue;
+          _error = serverIssue
+              ? 'The server is taking too long to respond. Please try again.'
+              : (res['detail'] ?? 'This test is locked or unavailable.')
+                  .toString();
           _loading = false;
         });
         return;
@@ -193,13 +227,26 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
           await _clearProgress();
         }
       }
+      if (!mounted) return;
+      _started = true; // ab se autosave — resume dialog ke dauraan purana progress na mite
       _startTimer();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
+        _loadFailed = true;
         _error = 'Could not load the test. Check your connection.';
         _loading = false;
       });
     }
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _error = null;
+      _loadFailed = false;
+      _loading = true;
+    });
+    _load();
   }
 
   int? get _currentQid {
@@ -223,6 +270,7 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
           final qid = _currentQid;
           if (qid != null) _qTimes[qid] = (_qTimes[qid] ?? 0) + 1;
         });
+        if (_elapsed % 5 == 0) _autosave();
       }
     });
   }
@@ -242,6 +290,7 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
       _current = index;
       _visited.add(_questions[index]['id'] as int);
     });
+    _autosave();
   }
 
   Future<void> _confirmSubmit() async {
@@ -273,10 +322,15 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
     if (ok == true) _submit();
   }
 
+  // Submit (Nov 2026): pehle progress submit se PEHLE mit jaata tha. Server
+  // slow ho aur submit fail ho to student ke saare answers gaye, aur wapas
+  // aane par test shuru se. Ab progress pehle save, aur sirf server se result
+  // aane ke BAAD mitta hai. Fail ho to test wahin rehta hai + Retry.
   Future<void> _submit({bool auto = false}) async {
-    if (_submitting) return;
+    if (_submitting || _done) return;
     _timer?.cancel();
-    await _clearProgress();
+    await _saveProgress();
+    if (!mounted) return;
     setState(() => _submitting = true);
     final uid = context.read<AuthProvider>().user?['id'] as int?;
 
@@ -297,6 +351,8 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
       if (res['error'] != null || (res['detail'] != null && res['score'] == null && res['pending'] != true)) {
         throw Exception('${res['detail'] ?? res['error']}');
       }
+      _done = true;
+      await _clearProgress();
       // Sahi jawab ab submit ke BAAD server se (test ke dauraan phone par nahi)
       final solved = await _withSolutions(uid, res['pending'] == true);
       if (!mounted) return;
@@ -314,10 +370,32 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _submitting = false;
-        _error = 'Submit failed. Check your connection and try again.';
-      });
+      setState(() => _submitting = false);
+      if (_done) return; // submit ho chuka tha, sirf aage ka kaam fail hua
+      final retry = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Submit failed'),
+          content: const Text(
+              'The server is slow or your connection dropped. Your answers are saved on this phone. Please try again.'),
+          actions: [
+            if (!auto && _secondsLeft > 0)
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Back to test')),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Retry submit')),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (retry == true) {
+        _submit(auto: auto);
+      } else {
+        _startTimer();
+      }
     }
   }
 
@@ -370,9 +448,25 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(28),
-            child: Text(_error!,
-                textAlign: TextAlign.center,
-                style: TextStyle(color: t.muted, fontSize: 15)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_error!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: t.muted, fontSize: 15)),
+                if (_loadFailed) ...[
+                  const SizedBox(height: 18),
+                  ElevatedButton.icon(
+                    onPressed: _retryLoad,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Retry'),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: kDGold,
+                        foregroundColor: const Color(0xFF1A1A1A)),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       );
@@ -583,6 +677,7 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
                     const SizedBox(width: 8),
                     _ctrlBtn(t, 'Clear', Icons.clear, () {
                       setState(() => _answers.remove(qid));
+                      _autosave();
                     }),
                     const Spacer(),
                     ElevatedButton(
@@ -636,7 +731,10 @@ class _MockPlayerScreenState extends State<MockPlayerScreen> {
       if (text.isEmpty) continue;
       final selected = _answers[qid] == letter;
       tiles.add(GestureDetector(
-        onTap: () => setState(() => _answers[qid] = letter),
+        onTap: () {
+          setState(() => _answers[qid] = letter);
+          _autosave();
+        },
         child: Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(13),
