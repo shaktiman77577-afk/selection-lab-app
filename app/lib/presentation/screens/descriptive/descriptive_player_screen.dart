@@ -4,9 +4,11 @@
 // write, paste-blocked answer box, submit -> result. Follows app theme.
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/secure_screen.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/providers/descriptive_api.dart';
@@ -26,9 +28,11 @@ class DescriptivePlayerScreen extends StatefulWidget {
       _DescriptivePlayerScreenState();
 }
 
-class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
+class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen>
+    with WidgetsBindingObserver {
   bool _loading = true;
   String? _error;
+  bool _loadFailed = false; // network / server wajah se — Retry button dikhta hai
   Map<String, dynamic> _test = {};
 
   List<Map<String, dynamic>> _sections = [];
@@ -40,17 +44,24 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
   Timer? _timer;
   int _secondsLeft = 0;
   bool _submitting = false;
+  bool _done = false; // submit ho gaya — ab kuch save nahi
+  bool _started = false; // resume / start-over chun liya, timer chal gaya
+  int? _uidForKey;
   int _dbgQ = 0; // diagnostic: questions loaded
 
   @override
   void initState() {
     super.initState();
     SecureScreen.enter(); // paid questions — screenshot band
+    WidgetsBinding.instance.addObserver(this);
     _load();
   }
 
   @override
   void dispose() {
+    // Back dabaya to bhi likha hua save (text controllers band hone se PEHLE)
+    _autosave();
+    WidgetsBinding.instance.removeObserver(this);
     SecureScreen.exit();
     _timer?.cancel();
     for (final c in _controllers.values) {
@@ -59,14 +70,117 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
     super.dispose();
   }
 
+  // ── AUTOSAVE (Nov 2026) ──
+  // Pehle kuch save nahi hota tha: app band / back / call aaye to poora likha
+  // hua essay-letter gaya. Submit fail hone par bhi error page aata tha aur
+  // wapas jaate hi sab khatam. Ab likha hua har 5 sec, section badalne par,
+  // app background me jaate hi aur back par phone me save hota hai; dobara
+  // kholne par Resume. Sirf submit safal hone ke baad mitta hai.
+  String get _progKey => 'desc_progress_${_uidForKey ?? 0}_${widget.testId}';
+
+  bool get _canAutosave =>
+      _started && !_loading && !_done && _sections.isNotEmpty;
+
+  void _autosave() {
+    if (_canAutosave) _saveProgress();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.detached) {
+      _autosave();
+    }
+  }
+
+  Future<void> _saveProgress() async {
+    // Data PEHLE (bina await) — dispose me controllers band hone se pehle padh lo
+    final texts = <String, String>{};
+    _controllers.forEach((id, c) {
+      if (c.text.isNotEmpty) texts['$id'] = c.text;
+    });
+    final data = jsonEncode({
+      'texts': texts,
+      'chosen': _chosen.map((k, v) => MapEntry('$k', v)),
+      'secondsLeft': _secondsLeft,
+      'active': _activeSection,
+    });
+    final key = _progKey;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, data);
+    } catch (_) {}
+  }
+
+  Future<Map<String, dynamic>?> _readSaved() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_progKey);
+      if (raw == null || raw.isEmpty) return null;
+      final d = Map<String, dynamic>.from(jsonDecode(raw) as Map);
+      final texts = d['texts'];
+      // Kuch likha hi nahi tha to resume poochhne ka matlab nahi
+      if (texts is! Map || texts.values.every((v) => '$v'.trim().isEmpty)) {
+        return null;
+      }
+      return d;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _clearProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_progKey);
+    } catch (_) {}
+  }
+
+  void _restoreFrom(Map<String, dynamic> d) {
+    (d['texts'] as Map?)?.forEach((k, v) {
+      final id = int.tryParse('$k');
+      final c = id == null ? null : _controllers[id];
+      if (c != null) c.text = '$v';
+    });
+    (d['chosen'] as Map?)?.forEach((k, v) {
+      final sec = int.tryParse('$k');
+      final id = int.tryParse('$v');
+      if (sec != null && id != null && sec < _sections.length &&
+          _controllers.containsKey(id)) {
+        _chosen[sec] = id;
+      }
+    });
+    final left = (d['secondsLeft'] as num?)?.toInt();
+    if (left != null && left > 0 && left <= _secondsLeft) _secondsLeft = left;
+    final active = (d['active'] as num?)?.toInt() ?? 0;
+    _activeSection = (active >= 0 && active < _sections.length) ? active : 0;
+  }
+
+  void _retryLoad() {
+    setState(() {
+      _error = null;
+      _loadFailed = false;
+      _loading = true;
+    });
+    _load();
+  }
+
   Future<void> _load() async {
     final uid = context.read<AuthProvider>().user?['id'] as int?;
+    _uidForKey = uid;
     try {
       final res = await DescriptiveApi.test(widget.testId, uid);
+      if (!mounted) return;
       if (res['test'] == null || res['questions'] == null) {
+        // Timeout / server down par "locked or unavailable" nahi — asli baat + Retry
+        final serverIssue = res['error'] != null && res['detail'] == null;
         setState(() {
-          _error = (res['detail'] ?? 'This test is locked or unavailable.')
-              .toString();
+          _loadFailed = serverIssue;
+          _error = serverIssue
+              ? 'The server is taking too long to respond. Please try again.'
+              : (res['detail'] ?? 'This test is locked or unavailable.')
+                  .toString();
           _loading = false;
         });
         return;
@@ -138,9 +252,41 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
         _secondsLeft = durMin * 60;
         _loading = false;
       });
+
+      // Pichhli baar ka likha hua bacha hai? (app band / back / submit fail)
+      final saved = await _readSaved();
+      if (saved != null && mounted) {
+        final resume = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Resume test?'),
+            content: const Text(
+                'Your unsubmitted answers for this test are saved on this phone. Continue where you left off, or start over?'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Start over')),
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Resume')),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        if (resume == true) {
+          setState(() => _restoreFrom(saved));
+        } else {
+          await _clearProgress();
+        }
+      }
+      if (!mounted) return;
+      _started = true; // ab se autosave — resume dialog ke dauraan purana na mite
       _startTimer();
     } catch (e) {
+      if (!mounted) return;
       setState(() {
+        _loadFailed = true;
         _error = 'Could not load the test. Please check your connection and try again.';
         _loading = false;
       });
@@ -158,6 +304,7 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
         _submit(auto: true);
       } else {
         setState(() => _secondsLeft--);
+        if (_secondsLeft % 5 == 0) _autosave();
       }
     });
   }
@@ -210,9 +357,14 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
     if (ok == true) _submit();
   }
 
+  // Submit (Nov 2026): fail hone par pehle poori screen error page ban jaati thi
+  // aur likha hua sab chala jaata tha. Ab pehle save, fail par test wahin +
+  // Retry; saved draft sirf safal submit ke baad mitta hai.
   Future<void> _submit({bool auto = false}) async {
-    if (_submitting) return;
+    if (_submitting || _done) return;
     _timer?.cancel();
+    await _saveProgress();
+    if (!mounted) return;
     setState(() => _submitting = true);
     final uid = context.read<AuthProvider>().user?['id'] as int?;
     if (uid == null) {
@@ -237,6 +389,9 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
       final res = await DescriptiveApi.submit(uid, widget.testId, answers);
       if (!mounted) return;
       if (res['success'] == true) {
+        _done = true;
+        await _clearProgress();
+        if (!mounted) return;
         final results = (res['results'] as List? ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList();
@@ -252,17 +407,45 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
           ),
         );
       } else {
-        setState(() {
-          _submitting = false;
-          _error = (res['detail'] ?? 'Submit failed. Try again.').toString();
-        });
+        await _submitFailed(
+            res['detail'] != null
+                ? '${res['detail']}\n\nYour answers are saved on this phone.'
+                : 'The server is slow or your connection dropped. Your answers are saved on this phone. Please try again.',
+            auto);
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _submitting = false;
-        _error = 'Submit failed. Check your connection and try again.';
-      });
+      await _submitFailed(
+          'Submit failed. Check your connection and try again. Your answers are saved on this phone.',
+          auto);
+    }
+  }
+
+  Future<void> _submitFailed(String msg, bool auto) async {
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    final retry = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Submit failed'),
+        content: Text(msg),
+        actions: [
+          if (!auto && _secondsLeft > 0)
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Back to test')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Retry submit')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (retry == true) {
+      _submit(auto: auto);
+    } else {
+      _startTimer();
     }
   }
 
@@ -302,6 +485,17 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
               Text(_error!,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: t.muted, fontSize: 15)),
+              if (_loadFailed) ...[
+                const SizedBox(height: 18),
+                ElevatedButton.icon(
+                  onPressed: _retryLoad,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: kDGold,
+                      foregroundColor: const Color(0xFF1A1A1A)),
+                ),
+              ],
             ],
           ),
         ),
@@ -369,7 +563,10 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
                   itemBuilder: (_, i) {
                     final active = i == _activeSection;
                     return GestureDetector(
-                      onTap: () => setState(() => _activeSection = i),
+                      onTap: () {
+                        setState(() => _activeSection = i);
+                        _autosave();
+                      },
                       child: Container(
                         alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -439,7 +636,12 @@ class _DescriptivePlayerScreenState extends State<DescriptivePlayerScreen> {
     final selected = !multi || chosenId == id;
     final wl = q['word_limit'];
     return GestureDetector(
-      onTap: multi ? () => setState(() => _chosen[_activeSection] = id) : null,
+      onTap: multi
+          ? () {
+              setState(() => _chosen[_activeSection] = id);
+              _autosave();
+            }
+          : null,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
