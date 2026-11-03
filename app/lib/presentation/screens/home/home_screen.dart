@@ -39,6 +39,7 @@ import '../tier2/tier2_screen.dart';
 import '../../widgets/live_test_banner.dart';
 import '../live/live_classes_screen.dart';
 import '../descriptive/descriptive_theme.dart';
+import '../exams/exam_widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -126,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── DASHBOARD ──────────────────────────────────────────────────────────────────────────
+// ── DASHBOARD ──────────────────────────────────────────────────────────────────────────────
 
 class DashboardTab extends StatefulWidget {
   final VoidCallback onToggleTheme;
@@ -143,6 +144,8 @@ class _DashboardTabState extends State<DashboardTab> {
   List<Map<String, dynamic>> _coupons = [];
   List<Map<String, dynamic>> _series = [];
   List<Map<String, dynamic>> _myCourses = [];
+  // Exam Pages (Nov 2026) — /api/exam-pages ka jawab
+  Map<String, dynamic>? _exams;
 
   final PageController _heroCtrl = PageController();
   int _heroPage = 0;
@@ -207,6 +210,7 @@ class _DashboardTabState extends State<DashboardTab> {
       _get('/coupons/public'),
       _get('/mock-tests/series$uq'),
       uid != null ? _get('/courses/my/$uid') : Future.value(null),
+      _get('/exam-pages/?platform=app'),
     ]);
     if (!mounted) return;
     setState(() {
@@ -218,6 +222,7 @@ class _DashboardTabState extends State<DashboardTab> {
           .toList();
       _series = _list(res[4], 'series');
       _myCourses = _list(res[5], 'courses');
+      _exams = res[6] is Map ? Map<String, dynamic>.from(res[6] as Map) : null;
     });
   }
 
@@ -310,7 +315,7 @@ class _DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  // ── BUILD ────────────────────────────────────────────────────────────────────────────
+  // ── BUILD ─────────────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final t = dtOf(context);
@@ -363,6 +368,9 @@ class _DashboardTabState extends State<DashboardTab> {
                       const SizedBox(height: 12),
                       _couponStrip(t),
                     ],
+
+                    // 2b. Browse by exam (Nov 2026) — koi exam ON na ho to chhupa
+                    ExamBrowseSection(data: _exams),
 
                     // 3. Quick actions
                     const SizedBox(height: 20),
