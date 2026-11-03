@@ -23,6 +23,8 @@ import '../../../data/providers/auth_provider.dart';
 import '../courses/course_detail_screen.dart';
 import '../descriptive/descriptive_series_detail_screen.dart';
 import '../descriptive/descriptive_theme.dart';
+import '../exams/exam_page_screen.dart';
+import '../exams/exam_widgets.dart';
 import '../mock/mock_series_detail_screen.dart';
 import '../web/site_web_screen.dart';
 
@@ -111,7 +113,7 @@ class _SearchScreenState extends State<SearchScreen> {
     });
     final uid = _userId;
     final url = Uri.parse('${AppConstants.apiUrl}/search/'
-        '?q=${Uri.encodeQueryComponent(q)}&platform=app&limit=20'
+        '?q=${Uri.encodeQueryComponent(q)}&platform=app&limit=20&exams=1'
         '${uid != null ? '&user_id=$uid' : ''}');
     try {
       final res = await http.get(url).timeout(const Duration(seconds: 15));
@@ -160,6 +162,13 @@ class _SearchScreenState extends State<SearchScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (_) => w));
 
     switch ('${r['kind'] ?? ''}') {
+      case 'exam':
+        {
+          // Exam page (Nov 2026) — slug link se: /exam/<slug>
+          final slug = '${r['link'] ?? ''}'.split('/').last;
+          if (slug.isNotEmpty) push(ExamPageScreen(slug: slug));
+          return;
+        }
       case 'course':
         // CourseDetail khud poora course mangwa leta hai
         if (id != null) {
@@ -330,6 +339,17 @@ class _SearchScreenState extends State<SearchScreen> {
       onTap: () => _openResult(r),
       child: Row(
         children: [
+          if (r['kind'] == 'exam')
+            SizedBox(
+              width: 84,
+              height: 64,
+              child: Center(
+                  child: ExamLogo(exam: {
+                'logo_url': r['thumbnail_url'],
+                'name': r['title'],
+              }, size: 56)),
+            )
+          else
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: SizedBox(
